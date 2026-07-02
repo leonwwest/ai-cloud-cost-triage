@@ -1,0 +1,16 @@
+{
+  "_comment": "Fictional but realistic sample data for the AI-Cloud Cost & Access Triage portfolio piece. Edit and re-run `node scripts/build-plots.mjs` to regenerate assets/*.svg.",
+  "cost": {
+    "_unit": "EUR/day",
+    "_baseline7d": 13,
+    "perDay": [12, 14, 11, 13, 12, 15, 14, 13, 16, 95, 120, 140, 155, 168],
+    "spikeStartsAtIndex": 9,
+    "yMax": 170
+  },
+  "tokens": {
+    "_unit": "prompt_tokens per request",
+    "before": { "p50": 2000, "p95": 3500, "p99": 5000 },
+    "after":  { "p50": 2200, "p95": 28000, "p99": 42000 },
+    "yMax": 42000
+  }
+}

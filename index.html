@@ -1,131 +1,121 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI-Cloud Cost &amp; Access Triage</title>
+<meta name="description" content="Triage-Runbook für interne AI-Agenten: Kosten steigen plötzlich, Antworten greifen auf falsche Daten zu. 9-Schritte-Fluss vom Symptom zur Eskalation, mit Architektur, Plots, Metrics, Cloud-CLI-Snippets, IaC und Post-Mortems.">
+<meta name="author" content="leonwwest">
+<meta name="theme-color" content="#0f1115">
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="AI-Cloud Cost & Access Triage">
+<meta property="og:description" content="9-step triage runbook for internal AI agents with sudden cost spike + wrong-data access. Architecture, plots, metrics, CLI snippets, IaC, post-mortems.">
+<meta property="og:url" content="https://leonwwest.github.io/ai-cloud-cost-triage/">
+<meta property="og:image" content="https://leonwwest.github.io/ai-cloud-cost-triage/assets/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="de_DE">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="AI-Cloud Cost & Access Triage">
+<meta name="twitter:description" content="9-step triage runbook for internal AI agents: sudden cost spike + wrong-data access.">
+<meta name="twitter:image" content="https://leonwwest.github.io/ai-cloud-cost-triage/assets/og-image.png">
+
 <style>
   :root {
-    --bg: #0f1115;
-    --panel: #161a21;
-    --panel-2: #1d222b;
-    --ink: #e6e9ef;
-    --muted: #9aa4b2;
-    --line: #2a313c;
-    --accent: #4f9cf9;
-    --warn: #f5a623;
-    --stop: #ff6b6b;
-    --ok: #3ddc97;
+    --bg: #0f1115; --panel: #161a21; --panel-2: #1d222b; --ink: #e6e9ef;
+    --muted: #9aa4b2; --line: #2a313c; --accent: #4f9cf9; --warn: #f5a623;
+    --stop: #ff6b6b; --ok: #3ddc97;
     --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  [data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f7f9; --panel-2: #eceef2; --ink: #14161a;
+    --muted: #5b6675; --line: #d9dee5; --accent: #1b5fa6; --warn: #9a6800;
+    --stop: #c02020; --ok: #18794e;
   }
   * { box-sizing: border-box; }
   html { -webkit-print-color-adjust: exact; print-color-adjust: exact; scroll-behavior: smooth; }
-  body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
+  body { margin: 0; background: var(--bg); color: var(--ink);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    line-height: 1.55;
-    font-size: 15px;
-  }
+    line-height: 1.55; font-size: 15px; transition: background .15s, color .15s; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
   .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 28px 80px; }
 
-  /* nav */
-  nav.top {
-    position: sticky; top: 0; z-index: 10;
-    background: rgba(15,17,21,.92);
-    backdrop-filter: blur(6px);
-    border-bottom: 1px solid var(--line);
-    margin: 0 -28px 26px;
-    padding: 10px 28px;
-    display: flex; flex-wrap: wrap; gap: 6px 14px;
-    font-size: 12.5px;
-  }
+  nav.top { position: sticky; top: 0; z-index: 10; background: rgba(15,17,21,.92);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
+    margin: 0 -28px 26px; padding: 10px 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 12.5px; }
+  [data-theme="light"] nav.top { background: rgba(255,255,255,.92); }
   nav.top a { color: var(--muted); text-decoration: none; }
   nav.top a:hover { color: var(--ink); }
-  nav.top .lang { margin-left: auto; color: var(--accent); }
+  nav.top .spacer { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  .theme-toggle { background: var(--panel-2); color: var(--ink); border: 1px solid var(--line);
+    border-radius: 8px; width: 32px; height: 32px; cursor: pointer; font-size: 15px; line-height: 1; font-family: inherit; }
+  nav.top .lang { color: var(--accent); text-decoration: none; font-weight: 600; }
 
   header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
   header .sub { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
-  .scenario {
-    background: linear-gradient(180deg, rgba(79,156,249,.10), rgba(79,156,249,.02));
-    border: 1px solid rgba(79,156,249,.35);
-    border-radius: 12px; padding: 16px 18px; margin: 22px 0 26px;
-  }
-  .scenario .tag {
-    display: inline-block; font-size: 11px; text-transform: uppercase;
-    letter-spacing: .08em; color: var(--accent); margin-bottom: 6px;
-  }
+  .scenario { background: linear-gradient(180deg, rgba(79,156,249,.10), rgba(79,156,249,.02));
+    border: 1px solid rgba(79,156,249,.35); border-radius: 12px; padding: 16px 18px; margin: 22px 0 26px; }
+  .scenario .tag { display: inline-block; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--accent); margin-bottom: 6px; }
   .scenario p { margin: 6px 0 0; color: #cfd6e1; }
+  [data-theme="light"] .scenario p { color: #2c3340; }
 
-  .flow {
-    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
-    margin: 0 0 26px; font-family: var(--mono); font-size: 12px;
-  }
-  .flow .chip {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 999px; padding: 5px 11px; color: var(--ink);
-  }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 26px; font-family: var(--mono); font-size: 12px; }
+  .flow a.chip, .flow .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; color: var(--ink); text-decoration: none; }
+  .flow a.chip:hover { border-color: var(--accent); color: var(--accent); }
   .flow .arr { color: var(--muted); }
 
   .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
 
-  .step {
-    background: var(--panel); border: 1px solid var(--line);
-    border-radius: 12px; padding: 16px 18px; break-inside: avoid;
-  }
-  .step .num {
-    font-family: var(--mono); font-size: 12px; color: var(--accent);
-    background: rgba(79,156,249,.12); border: 1px solid rgba(79,156,249,.3);
-    width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-    border-radius: 8px; margin-right: 10px;
-  }
-  .step h3 { display: inline; font-size: 16px; margin: 0; vertical-align: middle; }
-  .step .head { display: flex; align-items: center; margin-bottom: 10px; }
+  .skills { display: grid; grid-template-columns: repeat(2,1fr); gap: 10px; }
+  @media (min-width: 760px) { .skills { grid-template-columns: repeat(4,1fr); } }
+  .skill { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+  .skill .ic { font-size: 18px; }
+  .skill h4 { margin: 6px 0 3px; font-size: 13px; }
+  .skill p { margin: 0; color: var(--muted); font-size: 12px; }
+
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; break-inside: avoid; scroll-margin-top: 70px; }
+  .step .head { display: flex; align-items: center; margin-bottom: 10px; gap: 10px; }
+  .step .num { font-family: var(--mono); font-size: 12px; color: var(--accent); background: rgba(79,156,249,.12); border: 1px solid rgba(79,156,249,.3);
+    width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; text-decoration: none; }
+  .step .num:hover { background: var(--accent); color: var(--bg); }
+  .step h3 { font-size: 16px; margin: 0; }
   .step h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
   .step ul { margin: 0; padding-left: 18px; }
   .step li { margin: 4px 0; color: #cdd3de; }
-  code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); color: #e6e9ef; }
-  .stop {
-    margin-top: 12px; background: rgba(255,107,107,.08); border-left: 3px solid var(--stop);
-    border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #f3c8c8;
-  }
+  [data-theme="light"] .step li { color: #2c3340; }
+  code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); color: var(--ink); }
+  .stop { margin-top: 12px; background: rgba(255,107,107,.08); border-left: 3px solid var(--stop); border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #f3c8c8; }
+  [data-theme="light"] .stop { color: #7a1d1d; }
   .stop strong { color: var(--stop); }
 
   section.block { margin: 34px 0 0; scroll-margin-top: 64px; }
   section.block > h2 { font-size: 19px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px; }
   section.block > p.lead { color: var(--muted); margin-top: -6px; margin-bottom: 14px; font-size: 13.5px; }
 
-  pre {
-    background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
-    padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; color: #cdd3de;
-  }
-  pre .c { color: #6b7686; } /* comment */
-  pre .k { color: #6db3ff; } /* keyword */
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; color: #cdd3de; }
+  [data-theme="light"] pre { color: #2c3340; }
+  pre .c { color: #6b7686; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
   td code { white-space: nowrap; }
 
-  /* diagrams / plots */
   .figure { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 10px 0 16px; }
   .figure .cap { color: var(--muted); font-size: 12.5px; margin-top: 8px; text-align: center; }
   .plots { display: grid; grid-template-columns: 1fr; gap: 14px; }
   @media (min-width: 760px) { .plots { grid-template-columns: 1fr 1fr; } }
-  svg { width: 100%; height: auto; display: block; }
+  svg, img { max-width: 100%; height: auto; }
 
-  /* snippet tabs */
   .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-  .tabs button {
-    background: var(--panel-2); color: var(--muted); border: 1px solid var(--line);
-    border-radius: 8px 8px 0 0; padding: 6px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit;
-  }
-  .tabs button.active { color: var(--ink); border-color: var(--accent); background: var(--panel); }
+  .tabs button { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); border-radius: 8px 8px 0 0; padding: 6px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit; }
+  .tabs button[aria-selected="true"] { color: var(--ink); border-color: var(--accent); background: var(--panel); border-bottom-color: var(--panel); }
   .tabpane { display: none; }
   .tabpane.active { display: block; }
 
-  /* postmortem timeline */
   ol.timeline { list-style: none; margin: 0; padding: 0; }
   ol.timeline li { position: relative; padding: 0 0 18px 26px; border-left: 2px solid var(--line); margin-left: 6px; }
   ol.timeline li::before { content: ""; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
@@ -133,45 +123,51 @@
   ol.timeline li .t { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
   ol.timeline li h4 { margin: 2px 0 4px; font-size: 14px; }
   ol.timeline li p { margin: 0; color: #cdd3de; font-size: 13.5px; }
+  [data-theme="light"] ol.timeline li p { color: #2c3340; }
 
-  /* checklist */
   table.checklist td:first-child { width: 28px; text-align: center; font-size: 16px; color: var(--accent); }
-  table.checklist input[type=checkbox] { transform: scale(1.2); }
+
+  .guardrails ul { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: 1fr; gap: 8px; }
+  @media (min-width: 760px) { .guardrails ul { grid-template-columns: 1fr 1fr; } }
+  .guardrails li { background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--ok); border-radius: 8px; padding: 10px 12px; }
+  .guardrails li strong { color: var(--ok); }
 
   footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+  footer a { color: var(--accent); }
 
   @media print {
-    body { background: #fff; color: #111; }
-    .wrap { padding: 8px; }
-    nav.top { display: none; }
-    .scenario, .step, pre, table, .figure { background: #f7f7f8; color: #111; border-color: #ccc; }
+    [data-theme="dark"] { all: revert; }
+    body { background: #fff; color: #111; } .wrap { padding: 8px; } nav.top { display: none; }
+    .scenario, .step, pre, table, .figure, .skill, .guardrails li { background: #f7f7f8; color: #111; border-color: #ccc; }
     .flow .chip { background: #f0f0f2; border-color: #ccc; color: #111; }
-    .stop { background: #fff0f0; color: #7a1d1d; }
-    .stop strong { color: #b32020; }
-    code { background: #ececef; color: #111; border-color: #ccc; }
-    th { color: #555; }
+    .stop { background: #fff0f0; color: #7a1d1d; } .stop strong { color: #b32020; }
+    code { background: #ececef; color: #111; border-color: #ccc; } th { color: #555; }
     .step .num { color: #1b5fa6; background: #e7f0fd; border-color: #b9d8f7; }
-    .scenario .tag, section.block > h2 { color: #111; }
-    .tabpane { display: block !important; }
-    .tabs { display: none; }
-    ol.timeline li { border-left-color: #aaa; }
+    .tabpane { display: block !important; } .tabs { display: none; }
   }
+  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } body { transition: none; } }
 </style>
 </head>
 <body>
 <div class="wrap">
 
-  <nav class="top">
+  <nav class="top" aria-label="Abschnittsnavigation">
     <a href="#fluss">Fluss</a>
+    <a href="#skills">Skills</a>
     <a href="#architektur">Architektur</a>
     <a href="#plots">Beispieldaten</a>
     <a href="#schritte">9 Schritte</a>
     <a href="#metrics">Metrics</a>
-    <a href="#snippets">CLI-Snippets</a>
-    <a href="#iac">Budget as Code</a>
+    <a href="#snippets">CLI</a>
+    <a href="#iac">IaC</a>
+    <a href="#prevention">Prevention</a>
     <a href="#postmortem">Post-Mortem</a>
+    <a href="#framework">Framework</a>
     <a href="#checkliste">Checkliste</a>
-    <a class="lang" href="index.en.html">EN</a>
+    <span class="spacer">
+      <button class="theme-toggle" id="themeToggle" type="button" aria-label="Helles/dunkles Thema wechseln" title="Thema wechseln">🌙</button>
+      <a class="lang" href="index.en.html" hreflang="en">EN</a>
+    </span>
   </nav>
 
   <header>
@@ -187,15 +183,15 @@
   <section class="block" id="fluss" style="margin-top:0">
     <h2>Triage-Fluss</h2>
     <div class="flow">
-      <span class="chip">1 Symptom</span><span class="arr">&rarr;</span>
-      <span class="chip">2 User/Team</span><span class="arr">&rarr;</span>
-      <span class="chip">3 Modell/API-Key</span><span class="arr">&rarr;</span>
-      <span class="chip">4 Tokenkosten</span><span class="arr">&rarr;</span>
-      <span class="chip">5 IAM/RBAC</span><span class="arr">&rarr;</span>
-      <span class="chip">6 Private Endpoint/Netzwerk</span><span class="arr">&rarr;</span>
-      <span class="chip">7 Logs/Traces</span><span class="arr">&rarr;</span>
-      <span class="chip">8 Budget-Alert</span><span class="arr">&rarr;</span>
-      <span class="chip">9 Eskalation</span>
+      <a class="chip" href="#step-1">1 Symptom</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-2">2 User/Team</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-3">3 Modell/API-Key</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-4">4 Tokenkosten</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-5">5 IAM/RBAC</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-6">6 Private Endpoint</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-7">7 Logs/Traces</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-8">8 Budget-Alert</a><span class="arr">&rarr;</span>
+      <a class="chip" href="#step-9">9 Eskalation</a>
     </div>
     <table>
       <thead><tr><th>#</th><th>Schritt</th><th>Ziel</th><th>Stopp-Indikator</th></tr></thead>
@@ -213,118 +209,64 @@
     </table>
   </section>
 
+  <section class="block" id="skills">
+    <h2>Was dieses Stück demonstriert</h2>
+    <p class="lead">Welche Kompetenzen hinter diesem Runbook stehen &mdash; damit Recruiter und Teams die Punkte nicht selbst verbinden müssen.</p>
+    <div class="skills">
+      <div class="skill"><div class="ic">☁️</div><h4>Multi-Cloud</h4><p>Azure, AWS, GCP: Cost, IAM, Netzwerk, Logs</p></div>
+      <div class="skill"><div class="ic">🔑</div><h4>IAM &amp; Least-Privilege</h4><p>RBAC-Scopes, Effective-Permissions, Audit</p></div>
+      <div class="skill"><div class="ic">🏗️</div><h4>Infrastructure as Code</h4><p>Terraform &amp; Bicep: Budget, Alerts, Action-Groups</p></div>
+      <div class="skill"><div class="ic">📈</div><h4>Observability</h4><p>KQL, CloudWatch Insights, Distributed Tracing</p></div>
+      <div class="skill"><div class="ic">💰</div><h4>FinOps &amp; Cost Engineering</h4><p>Tokens/req P95, Cost-Caps, Anomalie-Alerts</p></div>
+      <div class="skill"><div class="ic">🚨</div><h4>Incident Response</h4><p>9-Schritte-Triage, Post-Mortems, Eskalation</p></div>
+      <div class="skill"><div class="ic">🔁</div><h4>CI/CD &amp; SRE</h4><p>GitHub Actions, Lighthouse, Drift-Checks</p></div>
+      <div class="skill"><div class="ic">♿</div><h4>Accessibility</h4><p>ARIA-Tabs, Tastatur-Navi, SVG-Titel, Kontrast</p></div>
+    </div>
+  </section>
+
   <section class="block" id="architektur">
     <h2>Architektur &amp; Kontrollpunkte</h2>
-    <p class="lead">Wo im Agent-Pfad sitzen Cost-Cap, RBAC und Private Endpoint &mdash; und wo die „falschen Daten" einsickern.</p>
+    <p class="lead">Wo im Agent-Pfad Cost-Cap, RBAC und Private Endpoint sitzen &mdash; und wo die „falschen Daten" einsickern.</p>
     <div class="figure">
-      <svg viewBox="0 0 760 300" role="img" aria-label="Agent-Architektur mit Kontrollpunkten">
+      <svg viewBox="0 0 760 300" role="img" aria-labelledby="archT archD">
+        <title id="archT">Agent-Architektur mit Kontrollpunkten</title>
+        <desc id="archD">Fluss User zu AI-Agent zu RAG/Retrieval und LLM-Modell, mit Datenquellen A und B sowie Kontrollpunkten Cost-Cap, IAM/RBAC und Private-Endpoint-Perimeter. Der Pfad zu Datenquelle B ist rot gestrichelt markiert.</desc>
         <defs>
-          <marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L9,4.5 L0,9 z" fill="#4f9cf9"/>
-          </marker>
-          <marker id="arrR" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
-            <path d="M0,0 L9,4.5 L0,9 z" fill="#ff6b6b"/>
-          </marker>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,4.5 L0,9 z" fill="#4f9cf9"/></marker>
+          <marker id="arrR" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth"><path d="M0,0 L9,4.5 L0,9 z" fill="#ff6b6b"/></marker>
         </defs>
-        <!-- Private Endpoint boundary -->
         <rect x="540" y="20" width="210" height="150" rx="10" fill="none" stroke="#f5a623" stroke-width="1.4" stroke-dasharray="6 5"/>
         <text x="548" y="16" fill="#f5a623" font-size="11" font-family="monospace">Private Endpoint / VNet-Perimeter</text>
-
-        <!-- nodes -->
-        <rect x="24"  y="130" width="96"  height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
-        <text x="72"  y="156" fill="#e6e9ef" font-size="13" text-anchor="middle">User</text>
-
-        <rect x="180" y="130" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
-        <text x="240" y="151" fill="#e6e9ef" font-size="13" text-anchor="middle">AI-Agent</text>
-        <text x="240" y="166" fill="#9aa4b2" font-size="10" text-anchor="middle">Orchestrator</text>
-
-        <rect x="360" y="70"  width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
-        <text x="420" y="91"  fill="#e6e9ef" font-size="13" text-anchor="middle">RAG / Retrieval</text>
-        <text x="420" y="106" fill="#9aa4b2" font-size="10" text-anchor="middle">Connector</text>
-
-        <rect x="360" y="190" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
-        <text x="420" y="211" fill="#e6e9ef" font-size="13" text-anchor="middle">LLM-Modell</text>
-        <text x="420" y="226" fill="#9aa4b2" font-size="10" text-anchor="middle">API</text>
-
-        <rect x="560" y="36"  width="170" height="40" rx="8" fill="#1d222b" stroke="#3ddc97"/>
-        <text x="645" y="60"  fill="#e6e9ef" font-size="12" text-anchor="middle">Datenquelle A (erlaubt)</text>
-
-        <rect x="560" y="100" width="170" height="40" rx="8" fill="#1d222b" stroke="#ff6b6b"/>
-        <text x="645" y="124" fill="#e6e9ef" font-size="12" text-anchor="middle">Datenquelle B (fremd)</text>
-
-        <!-- arrows -->
+        <rect x="24"  y="130" width="96"  height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/><text x="72"  y="156" fill="#e6e9ef" font-size="13" text-anchor="middle">User</text>
+        <rect x="180" y="130" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/><text x="240" y="151" fill="#e6e9ef" font-size="13" text-anchor="middle">AI-Agent</text><text x="240" y="166" fill="#9aa4b2" font-size="10" text-anchor="middle">Orchestrator</text>
+        <rect x="360" y="70"  width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/><text x="420" y="91"  fill="#e6e9ef" font-size="13" text-anchor="middle">RAG / Retrieval</text><text x="420" y="106" fill="#9aa4b2" font-size="10" text-anchor="middle">Connector</text>
+        <rect x="360" y="190" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/><text x="420" y="211" fill="#e6e9ef" font-size="13" text-anchor="middle">LLM-Modell</text><text x="420" y="226" fill="#9aa4b2" font-size="10" text-anchor="middle">API</text>
+        <rect x="560" y="36"  width="170" height="40" rx="8" fill="#1d222b" stroke="#3ddc97"/><text x="645" y="60"  fill="#e6e9ef" font-size="12" text-anchor="middle">Datenquelle A (erlaubt)</text>
+        <rect x="560" y="100" width="170" height="40" rx="8" fill="#1d222b" stroke="#ff6b6b"/><text x="645" y="124" fill="#e6e9ef" font-size="12" text-anchor="middle">Datenquelle B (fremd)</text>
         <line x1="120" y1="152" x2="176" y2="152" stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
         <line x1="300" y1="140" x2="356" y2="98"  stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
         <line x1="300" y1="166" x2="356" y2="208" stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
         <line x1="360" y1="205" x2="306" y2="176" stroke="#4f9cf9" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arr)"/>
         <line x1="480" y1="84"  x2="556" y2="58"  stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
         <line x1="480" y1="100" x2="556" y2="120" stroke="#ff6b6b" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrR)"/>
-
-        <!-- control point pills -->
-        <rect x="300" y="176" width="120" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/>
-        <text x="360" y="190" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">Cost-Cap / Rate-Limit</text>
-
-        <rect x="492" y="64" width="84" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/>
-        <text x="534" y="78" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">IAM / RBAC</text>
-
+        <rect x="300" y="176" width="120" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/><text x="360" y="190" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">Cost-Cap / Rate-Limit</text>
+        <rect x="492" y="64" width="84" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/><text x="534" y="78" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">IAM / RBAC</text>
         <text x="300" y="290" fill="#9aa4b2" font-size="11" font-family="monospace">rot gestrichelt = Pfad zu „falschen Daten" &mdash; typische gemeinsame Ursache für Kosten↑ + Antworten↑(falsch)</text>
       </svg>
-      <div class="cap">Agent-Pfad mit Kontrollpunkten. Der rote, gestrichelte Pfad (RAG &rarr; Datenquelle B) ist der Verdachts­schwerpunkt.</div>
+      <div class="cap">Agent-Pfad mit Kontrollpunkten. Der rote, gestrichelte Pfad (RAG &rarr; Datenquelle B) ist der Verdachtsschwerpunkt.</div>
     </div>
   </section>
 
   <section class="block" id="plots">
     <h2>Beispieldaten &amp; Plots</h2>
-    <p class="lead">Fiktive, aber typische Verläufe &mdash; genau das Muster, das die gemeinsame Ursache signalisiert.</p>
+    <p class="lead">Fiktive, aber typische Verläufe, generiert aus <code>data/triage-data.json</code> via <code>node scripts/build-plots.mjs</code>. CI prüft auf Drift.</p>
     <div class="plots">
       <div class="figure">
-        <svg viewBox="0 0 660 210" role="img" aria-label="Kosten pro Tag">
-          <!-- axes -->
-          <line x1="40" y1="180" x2="640" y2="180" stroke="#2a313c" stroke-width="1.5"/>
-          <line x1="40" y1="20"  x2="40"  y2="180" stroke="#2a313c" stroke-width="1.5"/>
-          <!-- baseline (7d avg ~13) -->
-          <line x1="50" y1="169" x2="596" y2="169" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5 4"/>
-          <text x="600" y="172" fill="#3ddc97" font-size="10" font-family="monospace">7d-Basis</text>
-          <!-- cost line -->
-          <polyline points="50,170 92,168 134,171 176,169 218,170 260,167 302,168 344,169 386,166 428,99 470,78 512,61 554,48 596,37"
-                    fill="none" stroke="#4f9cf9" stroke-width="2.4"/>
-          <!-- spike marker -->
-          <circle cx="428" cy="99" r="4" fill="#ff6b6b"/>
-          <line x1="428" y1="99" x2="428" y2="36" stroke="#ff6b6b" stroke-width="1" stroke-dasharray="3 3"/>
-          <text x="436" y="40" fill="#ff6b6b" font-size="11" font-family="monospace">Spike ab Tag 10</text>
-          <!-- x labels -->
-          <text x="50"  y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">1</text>
-          <text x="428" y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">10</text>
-          <text x="596" y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">14</text>
-          <text x="20"  y="180" fill="#9aa4b2" font-size="10" font-family="monospace">€0</text>
-          <text x="10"  y="40"  fill="#9aa4b2" font-size="10" font-family="monospace">€170</text>
-          <text x="300" y="14"  fill="#e6e9ef" font-size="12" text-anchor="middle">Kosten / Tag (14&nbsp;Tage)</text>
-        </svg>
+        <img src="assets/cost-plot.svg" alt="Liniendiagramm: Kosten pro Tag über 14 Tage; bleiben 9 Tage nahe Basislinie, steigen ab Tag 10 auf das 7-Fache.">
         <div class="cap">Kosten bleiben 9&nbsp;Tage nahe Basislinie, springen dann +7&times;. Korreliert mit ersten „falsche Daten"-Tickets.</div>
       </div>
       <div class="figure">
-        <svg viewBox="0 0 660 210" role="img" aria-label="Prompt-Token Verteilung">
-          <line x1="40" y1="190" x2="640" y2="190" stroke="#2a313c" stroke-width="1.5"/>
-          <line x1="40" y1="20"  x2="40"  y2="190" stroke="#2a313c" stroke-width="1.5"/>
-          <!-- Before group (x=120) P50/P95/P99 -->
-          <rect x="120" y="182" width="30" height="8"   fill="#4f9cf9"/>
-          <rect x="156" y="177" width="30" height="13"  fill="#4f9cf9"/>
-          <rect x="192" y="171" width="30" height="19"  fill="#4f9cf9"/>
-          <!-- After group (x=400) P50/P95/P99 -->
-          <rect x="400" y="182" width="30" height="8"   fill="#ff6b6b"/>
-          <rect x="436" y="83"  width="30" height="107" fill="#ff6b6b"/>
-          <rect x="472" y="30"  width="30" height="160" fill="#ff6b6b"/>
-          <!-- labels -->
-          <text x="171" y="204" fill="#9aa4b2" font-size="11" text-anchor="middle" font-family="monospace">vor Incident</text>
-          <text x="451" y="204" fill="#9aa4b2" font-size="11" text-anchor="middle" font-family="monospace">während Incident</text>
-          <text x="135" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P50</text>
-          <text x="171" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P95</text>
-          <text x="207" y="166" fill="#cdd3de" font-size="9"  text-anchor="middle">P99</text>
-          <text x="415" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P50</text>
-          <text x="451" y="77"  fill="#ff6b6b" font-size="10" text-anchor="middle">P95</text>
-          <text x="487" y="24"  fill="#ff6b6b" font-size="10" text-anchor="middle">P99</text>
-          <text x="300" y="14"  fill="#e6e9ef" font-size="12" text-anchor="middle">Prompt-Tokens / Request (P50/P95/P99)</text>
-        </svg>
+        <img src="assets/token-plot.svg" alt="Gruppiertes Balkendiagramm: Prompt-Tokens P50/P95/P99 vor vs. während Incident; P50 gleich, P95 und P99 explodieren.">
         <div class="cap">P50 bleibt gleich &mdash; aber P95/P99 explodieren: klares Signal für Retrieval-/Schleifen-Blowup bei Ausreißern.</div>
       </div>
     </div>
@@ -334,8 +276,8 @@
     <h2>Die 9 Schritte im Detail</h2>
     <div class="grid">
 
-      <div class="step">
-        <div class="head"><span class="num">1</span><h3>Symptom &mdash; Beobachtung quantifizieren</h3></div>
+      <div class="step" id="step-1">
+        <div class="head"><a class="num" href="#step-1" aria-label="Permalink Schritt 1">1</a><h3>Symptom &mdash; Beobachtung quantifizieren</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Kosten-Delta: Tages-/Stundenschnitt vs. 7-Tage-Baseline (absolut und pro Aufruf).</li>
@@ -350,8 +292,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Kosten- und Qualitätssymptom zum selben Timestamp starten &rarr; als <em>ein</em> Incident behandeln.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">2</span><h3>User/Team &mdash; Betroffenheit &amp; Verursacher</h3></div>
+      <div class="step" id="step-2">
+        <div class="head"><a class="num" href="#step-2" aria-label="Permalink Schritt 2">2</a><h3>User/Team &mdash; Betroffenheit &amp; Verursacher</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Welche Teams/User melden falsche Antworten? Konzentriert oder verteilt?</li>
@@ -366,8 +308,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> ein Service-Account oder eine <code>agent_version</code> dominiert &rarr; dort eingrenzen.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">3</span><h3>Modell/API-Key &mdash; Welches Modell, welcher Key</h3></div>
+      <div class="step" id="step-3">
+        <div class="head"><a class="num" href="#step-3" aria-label="Permalink Schritt 3">3</a><h3>Modell/API-Key &mdash; Welches Modell, welcher Key</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Teureres Modell deployt? (<code>gpt-4o</code> vs. <code>4o-mini</code>, <code>claude-opus</code> vs. <code>sonnet</code>).</li>
@@ -382,8 +324,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Key im Code/Logs/öffentlichen Repos auftaucht &rarr; <strong>sofort rotieren</strong>, als möglichen Missbrauch behandeln.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">4</span><h3>Tokenkosten &mdash; Wo entstehen die Tokens</h3></div>
+      <div class="step" id="step-4">
+        <div class="head"><a class="num" href="#step-4" aria-label="Permalink Schritt 4">4</a><h3>Tokenkosten &mdash; Wo entstehen die Tokens</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Prompt-Tokens vs. Completion-Tokens. Hohe Prompt-Tokens = Kontext-/Retrieval-Blowup.</li>
@@ -399,8 +341,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Prompt-Tokens P95 plötzlich 5&ndash;10&times; höher &rarr; verdächtig auf Datenquellen-Kontext / Schleife.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">5</span><h3>IAM/RBAC &mdash; Dürfen die Zugriffe sein</h3></div>
+      <div class="step" id="step-5">
+        <div class="head"><a class="num" href="#step-5" aria-label="Permalink Schritt 5">5</a><h3>IAM/RBAC &mdash; Dürfen die Zugriffe sein</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Identität des Agenten: Managed Identity / Service Principal / User?</li>
@@ -416,8 +358,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Principal ist <code>Contributor</code>/<code>Owner</code> auf breitem Scope &rarr; Over-Privilegierung als Ursache.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">6</span><h3>Private Endpoint/Netzwerk &mdash; Wer darf wohin sprechen</h3></div>
+      <div class="step" id="step-6">
+        <div class="head"><a class="num" href="#step-6" aria-label="Permalink Schritt 6">6</a><h3>Private Endpoint/Netzwerk &mdash; Wer darf wohin sprechen</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Spricht der Agent nur mit Allow-List-Endpunkten? (Private Endpoint, VNet/Subnet, Egress-Rules).</li>
@@ -433,8 +375,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Agent erreicht Quellen außerhalb des Netzwerk-Perimeters &rarr; Ursache für „falsche Daten" + unkontrollierte Abrufe.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">7</span><h3>Logs/Traces &mdash; Was passierte wirklich</h3></div>
+      <div class="step" id="step-7">
+        <div class="head"><a class="num" href="#step-7" aria-label="Permalink Schritt 7">7</a><h3>Logs/Traces &mdash; Was passierte wirklich</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>End-to-End-Trace: User &rarr; Agent &rarr; Retrieval &rarr; Datenquelle &rarr; Modell &rarr; Antwort.</li>
@@ -450,8 +392,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Trace zeigt Retrieval aus nicht-erwarteter Quelle &rarr; beweist Ursache; Fix in Schritt 5/6.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">8</span><h3>Budget-Alert &mdash; Greift die Frühwarnung</h3></div>
+      <div class="step" id="step-8">
+        <div class="head"><a class="num" href="#step-8" aria-label="Permalink Schritt 8">8</a><h3>Budget-Alert &mdash; Greift die Frühwarnung</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Gab es einen Budget-/Anomalie-Alert? Wann hat er gefeuert?</li>
@@ -467,8 +409,8 @@
         <div class="stop"><strong>Stopp, falls:</strong> Alert gefeuert, aber 6+&nbsp;h unbearbeitet &rarr; Post-Incident auch Alerting-/On-Call-Prozess prüfen.</div>
       </div>
 
-      <div class="step">
-        <div class="head"><span class="num">9</span><h3>Eskalation &mdash; Wer muss ran</h3></div>
+      <div class="step" id="step-9">
+        <div class="head"><a class="num" href="#step-9" aria-label="Permalink Schritt 9">9</a><h3>Eskalation &mdash; Wer muss ran</h3></div>
         <h4>Was prüfen</h4>
         <ul>
           <li>Security-Verdacht? (geleakter Key, fremde Datenquelle, unautorisierte Egress).</li>
@@ -493,16 +435,16 @@
     <table>
       <thead><tr><th>Metric</th><th>Definition</th><th>Formel</th><th>Warum wichtig</th></tr></thead>
       <tbody>
-        <tr><td><code>cost/day</code></td><td>Tagesgesamtsumme aller Modell-API-Kosten</td><td><code>Σ price_in·tin + price_out·tout</code></td><td>Basislinie &amp; Spike-Erkennung (Schritt 1, 8)</td></tr>
-        <tr><td><code>cost/req</code></td><td>Durchschnittliche Kosten pro Agent-Task</td><td><code>cost / requests</code></td><td>Unterscheidet Mehr-Aufrufe vs. teurere Aufrufe (Schritt 2, 3)</td></tr>
-        <tr><td><code>tokens/req P95</code></td><td>95. Perzentil der Prompt-Tokens je Request</td><td><code>percentile(prompt_tokens, 0.95)</code></td><td>Détectiert Retrieval-/Schleifen-Blowup (Schritt 4)</td></tr>
-        <tr><td><code>prompt/completion ratio</code></td><td>Verhältnis Eingabe- zu Ausgabe-Tokens</td><td><code>t_in / t_out</code></td><td>Hoher Wert = Kontext-Blowup, niedriger = verbose Completion (Schritt 4)</td></tr>
-        <tr><td><code>mismatch-rate</code></td><td>Anteil Antworten mit Bezug auf falsche Quelle</td><td><code>mismatched / total</code></td><td>Quantifiziert das „falsche Daten"-Symptom (Schritt 1, 7)</td></tr>
-        <tr><td><code>effective-permission-scope</code></td><td>Summe der Datenquellen, die das Principal erreichen darf</td><td><code>|allow_list ∩ actual_scope|</code></td><td>Over-Privilegierungs-Indikator (Schritt 5)</td></tr>
-        <tr><td><code>egress-anomaly-count</code></td><td>Ziel-IPs/Domains außerhalb Allow-List pro Stunde</td><td><code>count(egress ∉ allowlist)</code></td><td>Netzwerk-Perimeter-Verstoß (Schritt 6)</td></tr>
-        <tr><td><code>trace-completeness</code></td><td>Anteil Hops mit Span im Trace</td><td><code>spans / expected_hops</code></td><td>Observability-Lücken (Schritt 7)</td></tr>
-        <tr><td><code>alert-latency</code></td><td>Zeit zwischen Ereignis und gefeuertem Alert</td><td><code>alert_time − event_time</code></td><td>Frühwarnungs-Qualität (Schritt 8)</td></tr>
-        <tr><td><code>MTTR</code></td><td>Mean Time to Remediate</td><td><code>resolve_time − detect_time</code></td><td>Post-Mortem-KPI (Schritt 9)</td></tr>
+        <tr><td><code>cost/day</code></td><td>Tagesgesamtsumme aller Modell-API-Kosten</td><td><code>Σ price_in·tin + price_out·tout</code></td><td>Basislinie &amp; Spike-Erkennung (1, 8)</td></tr>
+        <tr><td><code>cost/req</code></td><td>Durchschnittliche Kosten pro Agent-Task</td><td><code>cost / requests</code></td><td>Mehr-Aufrufe vs. teurere Aufrufe (2, 3)</td></tr>
+        <tr><td><code>tokens/req P95</code></td><td>95. Perzentil der Prompt-Tokens je Request</td><td><code>percentile(prompt_tokens, 0.95)</code></td><td>Retrieval-/Schleifen-Blowup (4)</td></tr>
+        <tr><td><code>prompt/completion ratio</code></td><td>Verhältnis Eingabe- zu Ausgabe-Tokens</td><td><code>t_in / t_out</code></td><td>Kontext-Blowup vs. verbose Completion (4)</td></tr>
+        <tr><td><code>mismatch-rate</code></td><td>Anteil Antworten mit Bezug auf falsche Quelle</td><td><code>mismatched / total</code></td><td>Quantifiziert „falsche Daten" (1, 7)</td></tr>
+        <tr><td><code>effective-permission-scope</code></td><td>Anzahl Datenquellen, die das Principal erreichen darf</td><td><code>|allow_list ∩ actual_scope|</code></td><td>Over-Privilegierungs-Indikator (5)</td></tr>
+        <tr><td><code>egress-anomaly-count</code></td><td>Ziel-IPs/Domains außerhalb Allow-List pro Stunde</td><td><code>count(egress ∉ allowlist)</code></td><td>Netzwerk-Perimeter-Verstoß (6)</td></tr>
+        <tr><td><code>trace-completeness</code></td><td>Anteil Hops mit Span im Trace</td><td><code>spans / expected_hops</code></td><td>Observability-Lücken (7)</td></tr>
+        <tr><td><code>alert-latency</code></td><td>Zeit zwischen Ereignis und gefeuertem Alert</td><td><code>alert_time − event_time</code></td><td>Frühwarnungs-Qualität (8)</td></tr>
+        <tr><td><code>MTTR</code></td><td>Mean Time to Remediate</td><td><code>resolve_time − detect_time</code></td><td>Post-Mortem-KPI (9)</td></tr>
       </tbody>
     </table>
   </section>
@@ -510,14 +452,13 @@
   <section class="block" id="snippets">
     <h2>Cloud-CLI &amp; Query-Snippets</h2>
     <p class="lead">Copy-Paste-Befehle je Cloud. Rohdateien unter <code>snippets/</code> im Repo.</p>
-    <div class="tabs" role="tablist">
-      <button class="active" data-tab="azure">Azure</button>
-      <button data-tab="aws">AWS</button>
-      <button data-tab="gcp">GCP</button>
-      <button data-tab="kql">Log Analytics (KQL)</button>
+    <div class="tabs" role="tablist" aria-label="Cloud CLI snippets">
+      <button role="tab" id="s-azure" aria-selected="true" aria-controls="sp-azure" data-tab="azure" tabindex="0">Azure</button>
+      <button role="tab" id="s-aws" aria-selected="false" aria-controls="sp-aws" data-tab="aws" tabindex="-1">AWS</button>
+      <button role="tab" id="s-gcp" aria-selected="false" aria-controls="sp-gcp" data-tab="gcp" tabindex="-1">GCP</button>
+      <button role="tab" id="s-kql" aria-selected="false" aria-controls="sp-kql" data-tab="kql" tabindex="-1">KQL</button>
     </div>
-
-    <div class="tabpane active" data-pane="azure">
+    <div class="tabpane active" role="tabpanel" id="sp-azure" aria-labelledby="s-azure" data-pane="azure">
 <pre><span class="c"># Kosten &amp; Usage pro API-Key / Modell (Azure Cost Management)</span>
 az consumption usage list --top 50 \
   --query "[?contains(instanceName,'ai-agent')].{name:instanceName, cost:pretaxCost, date:usageStart}"
@@ -534,7 +475,7 @@ az monitor activity-log list --caller &lt;agent-object-id&gt; \
 az storage account show --name &lt;storage&gt; --query "privateEndpointConnections"
 </pre>
     </div>
-    <div class="tabpane" data-pane="aws">
+    <div class="tabpane" role="tabpanel" id="sp-aws" aria-labelledby="s-aws" data-pane="aws">
 <pre><span class="c"># Cost Explorer: tägliche Kosten pro Service/Tag (AWS)</span>
 aws ce get-cost-and-usage \
   --time-period Start=2026-06-01,End=2026-07-02 \
@@ -552,7 +493,7 @@ aws iam list-attached-role-policies --role-name AgentServiceRole
 aws iam get-role --role-name AgentServiceRole --query "Role.MaxSessionDuration"
 </pre>
     </div>
-    <div class="tabpane" data-pane="gcp">
+    <div class="tabpane" role="tabpanel" id="sp-gcp" aria-labelledby="s-gcp" data-pane="gcp">
 <pre><span class="c"># GCP Billing: tägliche Kosten pro Label (agent_version)</span>
 gcloud billing accounts list
 gcloud alpha billing accounts describe &lt;ACCOUNT&gt; --format="value(displayName)"
@@ -570,7 +511,7 @@ gcloud asset analyze-iam-policy --full-resource-name=&lt;RESOURCE&gt; \
   --permissions="storage.objects.get" --format=json
 </pre>
     </div>
-    <div class="tabpane" data-pane="kql">
+    <div class="tabpane" role="tabpanel" id="sp-kql" aria-labelledby="s-kql" data-pane="kql">
 <pre><span class="c">// AppInsights/Log Analytics: Token-Verteilung + Top-Verbraucher</span>
 let span = 24h;
 AIAgentLLMCall
@@ -592,12 +533,12 @@ AppTraces
 
   <section class="block" id="iac">
     <h2>Budget-Alert &amp; Cost-Cap as Code</h2>
-    <p class="lead">Budget + Anomalie-Alert + Action-Group als Infrastructure-as-Code. Dateien: <code>infra/budget.tf</code> (Terraform) &amp; <code>infra/budget.bicep</code>.</p>
-    <div class="tabs" role="tablist">
-      <button class="active" data-tab="tf">Terraform</button>
-      <button data-tab="bicep">Bicep</button>
+    <p class="lead">Budget + Anomalie-Alert + Action-Group als IaC. Dateien: <code>infra/budget.tf</code> (Terraform) &amp; <code>infra/budget.bicep</code>.</p>
+    <div class="tabs" role="tablist" aria-label="Budget as code">
+      <button role="tab" id="i-tf" aria-selected="true" aria-controls="ip-tf" data-tab="tf" tabindex="0">Terraform</button>
+      <button role="tab" id="i-bicep" aria-selected="false" aria-controls="ip-bicep" data-tab="bicep" tabindex="-1">Bicep</button>
     </div>
-    <div class="tabpane active" data-pane="tf">
+    <div class="tabpane active" role="tabpanel" id="ip-tf" aria-labelledby="i-tf" data-pane="tf">
 <pre><span class="c"># infra/budget.tf — Budget + Anomalie-Alert + Action-Group (Azure)</span>
 resource "azurerm_resource_group" "ai" {
   name     = "rg-ai-agent"
@@ -615,8 +556,8 @@ resource "azurerm_monitor_action_group" "oncall" {
 }
 
 resource "azurerm_consumption_budget_resource_group" "agent" {
-  name                  = "budget-ai-agent"
-  resource_group_id     = azurerm_resource_group.ai.id
+  name              = "budget-ai-agent"
+  resource_group_id = azurerm_resource_group.ai.id
   amount                = 500                       <span class="c"># EUR / Monat</span>
   time_grain            = "Monthly"
   time_period {
@@ -624,10 +565,7 @@ resource "azurerm_consumption_budget_resource_group" "agent" {
     end_date   = "2027-07-01T00:00:00Z"
   }
   filter {
-    tag {
-      name  = "agent_version"
-      values = ["prod"]
-    }
+    tag { name = "agent_version", values = ["prod"] }
   }
   notification {
     enabled   = true
@@ -643,12 +581,11 @@ resource "azurerm_consumption_budget_resource_group" "agent" {
   }
 }
 
-<span class="c"># Anomalie-Erkennung (Autoscale-like Alert auf cost/hour)</span>
+<span class="c"># Anomalie-Erkennung (Scheduled-Query-Alert auf cost/hour)</span>
 resource "azurerm_monitor_scheduled_query_rules_alert" "cost_spike" {
   name                = "alert-ai-cost-spike"
   resource_group_name = azurerm_resource_group.ai.name
   location            = azurerm_resource_group.ai.location
-  severity            = 2
   frequency           = 5
   time_window         = 15
   data_source_id      = var.law_id
@@ -656,17 +593,12 @@ resource "azurerm_monitor_scheduled_query_rules_alert" "cost_spike" {
 AIAgentLLMCall | summarize cost = sum(todouble(cost)) by bin(1h)
 | where cost &gt; 20   <span class="c"># EUR/h Schwellwert</span>
 QUERY
-  trigger {
-    operator  = "GreaterThan"
-    threshold = 0
-  }
-  action {
-    action_groups = [azurerm_monitor_action_group.oncall.id]
-  }
+  trigger { operator = "GreaterThan", threshold = 0 }
+  action { action_groups = [azurerm_monitor_action_group.oncall.id] }
 }
 </pre>
     </div>
-    <div class="tabpane" data-pane="bicep">
+    <div class="tabpane" role="tabpanel" id="ip-bicep" aria-labelledby="i-bicep" data-pane="bicep">
 <pre><span class="c">// infra/budget.bicep — Budget + Alert (Azure)</span>
 param location string = resourceGroup().location
 param budgetAmount int = 500
@@ -678,11 +610,7 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   properties: {
     groupShortName: 'aiOnCall'
     enabled: true
-    emailReceivers: [{
-      name: 'platform'
-      emailAddress: oncallEmail
-      useCommonAlertSchema: true
-    }]
+    emailReceivers: [{ name: 'platform', emailAddress: oncallEmail, useCommonAlertSchema: true }]
   }
 }
 
@@ -691,51 +619,111 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
   properties: {
     amount: budgetAmount
     timeGrain: 'Monthly'
-    timePeriod: {
-      startDate: '2026-07-01T00:00:00Z'
-      endDate:   '2027-07-01T00:00:00Z'
-    }
-    filter: {
-      tags: { name: 'agent_version', values: ['prod'] }
-    }
+    timePeriod: { startDate: '2026-07-01T00:00:00Z', endDate: '2027-07-01T00:00:00Z' }
+    filter: { tags: { name: 'agent_version', values: ['prod'] } }
     notifications: {
-      warn80: { enabled: true, operator: 'GreaterThan', threshold: 80, contactEmails: [oncallEmail] }
+      warn80:  { enabled: true, operator: 'GreaterThan', threshold: 80,  contactEmails: [oncallEmail] }
       over100: { enabled: true, operator: 'GreaterThan', threshold: 100, contactEmails: [oncallEmail] }
     }
   }
 }
 
-<span class="c">// Cost-Cap als Application-Layer Circuit-Breaker (Pseudocode)</span>
+<span class="c">// Cost-Cap als App-Layer Circuit-Breaker (Pseudocode)</span>
 <span class="c">// if hourlyCost &gt; threshold: disableRagConnector('B'); throttleModel('mini')</span>
 </pre>
     </div>
   </section>
 
-  <section class="block" id="postmortem">
-    <h2>Worked Post-Mortem &mdash; Case #042</h2>
-    <p class="lead">Ein durchgespielter Fall, der zeigt, wie der Fluss eine gemeinsame Ursache aufdeckt.</p>
-    <div class="figure">
-      <table>
-        <tr><th style="width:130px">Incident</th><td>INC-2026-042 &middot; AI-Agent „HelpDesk v3" &middot; P2 &middot; Dauer 3h 20min</td></tr>
-        <tr><th>Symptom</th><td>Kosten +680&nbsp;% in 14&nbsp;h; 7 User melden Antworten mit Verweis auf <em>HR-Daten</em> statt auf HelpDesk-Wissensbasis.</td></tr>
-        <tr><th>Impact</th><td>~1.450&nbsp;EUR Mehraufwand; 3 User vorübergehend falsche Inhalte gezeigt; keine personenbezogenen Daten geleakt (verified via Trace).</td></tr>
-        <tr><th>Root Cause</th><td>Neuer RAG-Connector war in <code>v3.2.0</code> auf <strong>falschen Workspace</strong> (HR statt HelpDesk) konfiguriert &mdash; via Public-Endpoint. Service-Principal hatte <code>Storage Blob Data Contributor</code> auf Subscription-Scope, daher Zugriff möglich. Großer HR-Kontext blies Prompt-Tokens P95 von 3,5k auf 28k.</td></tr>
-        <tr><th>Detection-Gap</th><td>Budget-Alert feuerte 6&nbsp;h spät (Threshold nur auf <code>cost/day</code>, nicht <code>cost/hour</code>); Alert ging an nicht mehr aktive E-Mail-Liste.</td></tr>
-        <tr><th>Fix (erste Stunde)</th><td>Cost-Cap aktiv &rarr; Agent gedrosselt; HR-Connector deaktiviert; <code>v3.2.0</code> roll-back auf <code>v3.1.7</code>; Principal auf Storage-Blob-Reader + Resource-Scope eingeschränkt.</td></tr>
-        <tr><th>Dauer-Fix</th><td>RAG-Quellen-Allow-List im Code geprüft (CI-Gate); Private Endpoint für HR-Storage erzwungen; Alerting auf <code>cost/hour</code> &amp; <code>tokens/req P95</code>; Routing an PagerDuty.</td></tr>
-        <tr><th>Lessons</th><td>(1)RBAC-Scope ist eine Kostenursache. (2) Tages-Thresholds sind zu träge. (3) Datenquellen-Anbindung braucht Review-Gate wie Code-Änderungen.</td></tr>
-      </table>
+  <section class="block" id="prevention">
+    <h2>Prevention &amp; Guardrails</h2>
+    <p class="lead">Reaktiv ist zu spät &mdash; diese Guardrails hätten beide Post-Mortems verhindert oder eingedämmt.</p>
+    <div class="guardrails">
+      <ul>
+        <li><strong>CI-Gate für RAG-Quellen-Allow-List</strong> &mdash; neue Datenquellen brauchen Review wie Code-Änderungen; CI bricht bei nicht gelisteter Quelle.</li>
+        <li><strong>Least-Privilege per IaC</strong> &mdash; Principals nur Resource-Scope + Blob-Reader; Contributor/Owner auf Subscription sind verboten (Policy).</li>
+        <li><strong>Prompt-Size-Limit im Code</strong> &mdash; harte Obergrenze für <code>prompt_tokens</code>; Überschreitung bricht Request + Alert statt тихes Blowup.</li>
+        <li><strong>Cost-Cap &amp; Rate-Limit pro Key</strong> &mdash; Circuit-Breaker im Agent-Layer, nicht nur Cloud-seitig (siehe <code>infra/</code>).</li>
+        <li><strong>Recall-/Eval-Gate für Modellwechsel</strong> &mdash; Embedding-/Modell-Änderungen brauchen Eval-Suite (Recall, Mismatch-Rate) in CI.</li>
+        <li><strong>Alerting auf P95 &amp; cost/hour</strong> &mdash; nicht nur <code>cost/day</code>; Routing an PagerDuty, nicht nur E-Mail-Liste.</li>
+        <li><strong>Private Endpoint erzwungen</strong> &mdash; Azure Policy / Org Policy verbietet Public-Endpoint für Datenquellen.</li>
+        <li><strong>Trace-Coverage-SLO</strong> &mdash; <code>trace-completeness</code> &gt; 0,9 als SLO; Lücken werden selbst zum Ticket.</li>
+      </ul>
     </div>
-    <h4 style="margin-top:18px">Triage-Verlauf (Timeline)</h4>
-    <ol class="timeline">
-      <li><span class="t">T+0</span><h4>Symptom erkannt</h4><p>FinOps fragt nach Ursache des Kosten-Spike; gleichzeitig Ticket-Welle „falsche Daten". Selber Timestamp &rarr; ein Incident.</p></li>
-      <li><span class="t">T+15min</span><h4>User/Team &amp; Modell</h4><p>Aufrufe nach <code>agent_version</code>: 98&nbsp;% der Kosten aus <code>v3.2.0</code>. Key sauber, kein Leak.</p></li>
-      <li><span class="t">T+40min</span><h4>Tokenkosten</h4><p>Prompt-Tokens P95 = 28k (vorher 3,5k). Top-10 Requests alle enthalten HR-Kontext.</p></li>
-      <li class="stop"><span class="t">T+1h 05min</span><h4>IAM &amp; Netzwerk &mdash; Ursache gefunden</h4><p>Effective-Permissions zeigen Contributor auf Subscription; HR-Storage per Public-IP erreichbar. = gemeinsame Ursache für Kosten <em>und</em> falsche Daten.</p></li>
-      <li><span class="t">T+1h 20min</span><h4>Quick-Fix</h4><p>Cost-Cap an, Connector aus, Rollback, Principal eingegrenzt. Kosten fallen sofort.</p></li>
-      <li><span class="t">T+2h</span><h4>Trace-Beweis</h4><p>Trace-ID zeigt Retrieval aus HR-Workspace im Prompt. Kein Cross-Tenant, kein Leak &rarr; kein Security-IR nötig.</p></li>
-      <li><span class="t">T+3h 20min</span><h4>Eskalation &amp; Close</h4><p>Stakeholder-Update; Dauer-Fixes als Action-Items mit Owner &amp; ETA angelegt.</p></li>
-    </ol>
+  </section>
+
+  <section class="block" id="postmortem">
+    <h2>Worked Post-Mortems</h2>
+    <p class="lead">Zwei durchgespielte Fälle mit unterschiedlichen Root Causes &mdash; derselbe Triage-Fluss deckt beide auf.</p>
+    <div class="tabs" role="tablist" aria-label="Post-mortem Fälle">
+      <button role="tab" id="pm-42" aria-selected="true" aria-controls="pp-42" data-tab="42" tabindex="0">Case #042 · Falscher Workspace</button>
+      <button role="tab" id="pm-51" aria-selected="false" aria-controls="pp-51" data-tab="51" tabindex="-1">Case #051 · Embedding-Regression</button>
+    </div>
+
+    <div class="tabpane active" role="tabpanel" id="pp-42" aria-labelledby="pm-42" data-pane="42">
+      <div class="figure">
+        <table>
+          <tr><th style="width:130px">Incident</th><td>INC-2026-042 &middot; AI-Agent „HelpDesk v3" &middot; P2 &middot; Dauer 3h 20min</td></tr>
+          <tr><th>Symptom</th><td>Kosten +680&nbsp;% in 14&nbsp;h; 7 User melden Antworten mit Verweis auf <em>HR-Daten</em> statt auf HelpDesk-Wissensbasis.</td></tr>
+          <tr><th>Impact</th><td>~1.450&nbsp;EUR Mehraufwand; 3 User vorübergehend falsche Inhalte; keine PII geleakt (via Trace verifiziert).</td></tr>
+          <tr><th>Root Cause</th><td>Neuer RAG-Connector in <code>v3.2.0</code> auf <strong>falschen Workspace</strong> (HR statt HelpDesk) konfiguriert &mdash; via Public-Endpoint. Service-Principal hatte <code>Storage Blob Data Contributor</code> auf Subscription-Scope. Großer HR-Kontext blies Prompt-Tokens P95 von 3,5k auf 28k.</td></tr>
+          <tr><th>Detection-Gap</th><td>Budget-Alert feuerte 6&nbsp;h spät (nur <code>cost/day</code>); Alert ging an inaktive E-Mail-Liste.</td></tr>
+          <tr><th>Fix (1. Stunde)</th><td>Cost-Cap an; HR-Connector aus; <code>v3.2.0</code> → Rollback <code>v3.1.7</code>; Principal auf Blob-Reader + Resource-Scope.</td></tr>
+          <tr><th>Dauer-Fix</th><td>RAG-Allow-List als CI-Gate; Private Endpoint für HR-Storage erzwungen; Alerting auf <code>cost/hour</code> &amp; <code>tokens/req P95</code>; PagerDuty.</td></tr>
+          <tr><th>Lessons</th><td>(1) RBAC-Scope ist eine Kostenursache. (2) Tages-Thresholds sind zu träge. (3) Datenquellen brauchen Review-Gate wie Code.</td></tr>
+        </table>
+      </div>
+      <h4 style="margin-top:18px">Triage-Verlauf (Timeline)</h4>
+      <ol class="timeline">
+        <li><span class="t">T+0</span><h4>Symptom erkannt</h4><p>FinOps fragt nach Kosten-Spike; gleichzeitig Ticket-Welle „falsche Daten". Selber Timestamp → ein Incident.</p></li>
+        <li><span class="t">T+15min</span><h4>User/Team &amp; Modell</h4><p>Nach <code>agent_version</code>: 98&nbsp;% der Kosten aus <code>v3.2.0</code>. Key sauber, kein Leak.</p></li>
+        <li><span class="t">T+40min</span><h4>Tokenkosten</h4><p>Prompt-Tokens P95 = 28k (vorher 3,5k). Top-10 Requests alle mit HR-Kontext.</p></li>
+        <li class="stop"><span class="t">T+1h 05min</span><h4>IAM &amp; Netzwerk &mdash; Ursache gefunden</h4><p>Effective-Permissions zeigen Contributor auf Subscription; HR-Storage per Public-IP. = gemeinsame Ursache für Kosten <em>und</em> falsche Daten.</p></li>
+        <li><span class="t">T+1h 20min</span><h4>Quick-Fix</h4><p>Cost-Cap an, Connector aus, Rollback, Principal eingegrenzt. Kosten fallen sofort.</p></li>
+        <li><span class="t">T+2h</span><h4>Trace-Beweis</h4><p>Trace-ID zeigt Retrieval aus HR-Workspace im Prompt. Kein Cross-Tenant, kein Leak → kein Security-IR.</p></li>
+        <li><span class="t">T+3h 20min</span><h4>Eskalation &amp; Close</h4><p>Stakeholder-Update; Dauer-Fixes als Action-Items mit Owner &amp; ETA.</p></li>
+      </ol>
+    </div>
+
+    <div class="tabpane" role="tabpanel" id="pp-51" aria-labelledby="pm-51" data-pane="51">
+      <div class="figure">
+        <table>
+          <tr><th style="width:130px">Incident</th><td>INC-2026-051 &middot; AI-Agent „HelpDesk v3" &middot; P2 &middot; Dauer 5h 40min</td></tr>
+          <tr><th>Symptom</th><td>Kosten +210&nbsp;% über 3&nbsp;Tage; Antworten zitieren <em>veraltete/falsche Dokumente</em> aus den korrekten (erlaubten) Quellen.</td></tr>
+          <tr><th>Impact</th><td>~2.300&nbsp;EUR Mehraufwand; 12 User mit suboptimalen Antworten; keine Datenzugriffs-Verletzung (Quellen erlaubt, Inhalte nur falsch).</td></tr>
+          <tr><th>Root Cause</th><td>Embedding-Modell für RAG ohne Recall-Eval getauscht. Recall sank; eine „Top-K-Inflation"-Heuristik holte <strong>8&times; mehr Chunks</strong> als Ausgleich → Prompt-Tokens P95 von 3,5k auf 26k, und falsche Chunks landeten im Kontext.</td></tr>
+          <tr><th>Detection-Gap</th><td>Kein Recall-/Mismatch-Regressionstest in CI; Alert nur auf <code>cost/day</code>, nicht auf <code>tokens/req P95</code>.</td></tr>
+          <tr><th>Fix (1. Stunde)</th><td>Embedding-Modell zurückgerollt; Top-K gedeckelt auf 5; Cost-Cap aktiv; Antworten-Fehlerquote sank sofort.</td></tr>
+          <tr><th>Dauer-Fix</th><td>Eval-Suite (Recall + Mismatch-Rate) als CI-Gate für Modellwechsel; harte <code>prompt_tokens</code>-Obergrenze im Code; Alert auf P95.</td></tr>
+          <tr><th>Lessons</th><td>(1) Modelländerungen brauchen Eval-Gates. (2) Kompensations-Heuristiken können Kosten amplifizieren. (3) „Falsche Daten" muss nicht „falsche Quelle" heißen &mdash; Recall ist eine Kostenursache.</td></tr>
+        </table>
+      </div>
+      <h4 style="margin-top:18px">Triage-Verlauf (Timeline)</h4>
+      <ol class="timeline">
+        <li><span class="t">T+0</span><h4>Symptom erkannt</h4><p>Kostensteigerung über Tage + Qualitäts-Tickets (veraltete Antworten). Sanfterer Anstieg als #042, aber korreliert.</p></li>
+        <li><span class="t">T+30min</span><h4>User/Team &amp; Modell</h4><p>Alle <code>agent_version</code>s betroffen → Ursache im shared RAG-Pfad, nicht in einem Deployment.</p></li>
+        <li><span class="t">T+1h</span><h4>Tokenkosten</h4><p>Prompt-Tokens P95 = 26k. Top-10 Requests zeigen 8&times; mehr Chunks als Baseline.</p></li>
+        <li><span class="t">T+2h</span><h4>IAM/Netzwerk unauffällig</h4><p>Effective-Permissions sauber, Private Endpoint ok → Ursache ist <em>nicht</em> Infra/Permissions. Fokus auf Retrieval-Logik.</p></li>
+        <li class="stop"><span class="t">T+2h 30min</span><h4>Trace &mdash; Ursache gefunden</h4><p>Trace zeigt Top-K=40 statt 5; Embedding-Wechsel 3&nbsp;Tage vorher im Git-Log. = gemeinsame Ursache für Kosten <em>und</em> falsche Antworten.</p></li>
+        <li><span class="t">T+3h</span><h4>Quick-Fix</h4><p>Embedding-Rollback; Top-K gedeckelt. Kosten + Mismatch-Rate fallen.</p></li>
+        <li><span class="t">T+5h 40min</span><h4>Close</h4><p>Eval-Gate als Action-Item; kein Security-IR (kein unauthorized access).</p></li>
+      </ol>
+    </div>
+  </section>
+
+  <section class="block" id="framework">
+    <h2>Framework-Mapping</h2>
+    <p class="lead">Wie die 9 Schritte auf etablierte Incident-Response-Frameworks (Google SRE &amp; NIST) passen.</p>
+    <table>
+      <thead><tr><th>Schritt</th><th>Google SRE-Phase</th><th>NIST IR (800-61)</th></tr></thead>
+      <tbody>
+        <tr><td>1 Symptom &amp; 8 Budget-Alert</td><td>Detect / Monitoring</td><td>Detect &amp; Analyze</td></tr>
+        <tr><td>2 User/Team &amp; 3 Modell/Key</td><td>Triage / Impact assessment</td><td>Detect &amp; Analyze</td></tr>
+        <tr><td>4 Token &amp; 5 IAM &amp; 6 Netzwerk &amp; 7 Logs</td><td>Diagnose / Root-cause</td><td>Analyze (containment prep)</td></tr>
+        <tr><td>Quick-Fixes (Cost-Cap, Toggle, Rotate)</td><td>Mitigate / Stop the bleeding</td><td>Contain &amp; Eradicate</td></tr>
+        <tr><td>9 Eskalation &amp; Dauer-Fixes</td><td>Resolve / Escalate</td><td>Recover &amp; Eradicate</td></tr>
+        <tr><td>Post-Mortem &amp; Prevention</td><td>Postmortem &amp; Follow-up</td><td>Post-Incident Activity (Lessons)</td></tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="block" id="checkliste">
@@ -767,7 +755,8 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
 │   ├── Key ungeklärt / leaked?       → rotieren, IR (3,9)
 │   ├── Prompt-Tokens P95↑?           → Retrieval-/Schleifen-Fix (4)
 │   ├── Principal over-privileged?    → RBAC eindämmen (5)
-│   └── egress außerhalb Perimeter?   → Netzwerk-Fix (6)
+│   ├── egress außerhalb Perimeter?   → Netzwerk-Fix (6)
+│   └── alle Versionen, Recall↓?      → Embedding-/Modell-Rollback (7)
 └── nein → getrennte Incidents öffnen</pre>
   </section>
 
@@ -799,21 +788,56 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
   </section>
 
   <footer>
-    AI-Cloud Cost &amp; Access Triage &middot; Mini-Portfolio-Stück &middot; MIT-Lizenz &middot; Keine Garantie für Produktivnutzung &middot;
-    <a href="index.en.html" style="color:var(--accent)">English version</a>
+    AI-Cloud Cost &amp; Access Triage &middot; Mini-Portfolio-Stück &middot; MIT-Lizenz &middot; Zuletzt aktualisiert: 2026-07-02 &middot;
+    <a href="index.en.html">English version</a> &middot;
+    <a href="https://github.com/leonwwest/ai-cloud-cost-triage">Quellcode</a>
   </footer>
 
 </div>
 
 <script>
-  document.querySelectorAll('.tabs').forEach(g => {
-    const btns = g.querySelectorAll('button');
-    const scope = g.parentElement;
-    btns.forEach(b => b.addEventListener('click', () => {
-      const key = b.dataset.tab;
-      btns.forEach(x => x.classList.toggle('active', x === b));
-      scope.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.dataset.pane === key));
-    }));
+  // Theme toggle (persist)
+  (function () {
+    const root = document.documentElement;
+    const btn = document.getElementById('themeToggle');
+    const stored = localStorage.getItem('theme');
+    if (stored) { root.dataset.theme = stored; }
+    function sync() { btn.textContent = root.dataset.theme === 'light' ? '☀️' : '🌙'; }
+    sync();
+    btn.addEventListener('click', () => {
+      root.dataset.theme = root.dataset.theme === 'light' ? 'dark' : 'light';
+      localStorage.setItem('theme', root.dataset.theme);
+      sync();
+    });
+  })();
+
+  // Accessible tabs (roving tabindex + arrow keys)
+  document.querySelectorAll('[role="tablist"]').forEach(function (tl) {
+    const tabs = Array.from(tl.querySelectorAll('[role="tab"]'));
+    function activate(t, focus) {
+      tabs.forEach(function (x) {
+        const on = x === t;
+        x.setAttribute('aria-selected', on ? 'true' : 'false');
+        x.tabIndex = on ? 0 : -1;
+      });
+      const scope = tl.parentElement;
+      scope.querySelectorAll('.tabpane').forEach(function (p) {
+        p.classList.toggle('active', p.id === t.getAttribute('aria-controls'));
+      });
+      if (focus) t.focus();
+    }
+    tabs.forEach(function (t, i) {
+      t.addEventListener('click', function () { activate(t); });
+      t.addEventListener('keydown', function (e) {
+        const n = tabs.length; let j = i;
+        if (e.key === 'ArrowRight') j = (i + 1) % n;
+        else if (e.key === 'ArrowLeft') j = (i - 1 + n) % n;
+        else if (e.key === 'Home') j = 0;
+        else if (e.key === 'End') j = n - 1;
+        else return;
+        e.preventDefault(); activate(tabs[j]);
+      });
+    });
   });
 </script>
 </body>

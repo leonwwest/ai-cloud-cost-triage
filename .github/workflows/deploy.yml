@@ -1,7 +1,9 @@
-name: Deploy to GitHub Pages
+name: CI &amp; Deploy
 
 on:
   push:
+    branches: [main]
+  pull_request:
     branches: [main]
   workflow_dispatch:
 
@@ -15,30 +17,82 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  validate:
+    name: Validate (HTML + plot drift)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate HTML
-        run: |
-          # Basic check: ensure both HTML files exist and have closing tags
-          for f in index.html index.en.html; do
-            if [ -f "$f" ]; then
-              grep -q "</html>" "$f" && echo "$f: OK" || { echo "$f: missing </html>"; exit 1; }
-            fi
-          done
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
+      - name: Regenerate plots from data & check for drift
+        run: |
+          node scripts/build-plots.mjs
+          if ! git diff --quiet -- assets/; then
+            echo "::error::Generated plots are out of date. Run 'node scripts/build-plots.mjs' and commit the result."
+            git diff -- assets/
+            exit 1
+          fi
+          echo "Plot assets are in sync with data/triage-data.json"
+
+      - name: HTMLHint
+        run: npx --yes htmlhint@1.1.4 --config .htmlhintrc "index.html" "index.en.html"
+
+  links:
+    name: Link check (lychee)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lychee link checker
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress --exclude-private
+            "*.md" "index.html" "index.en.html"
+          fail: false
+
+  lighthouse:
+    name: Lighthouse CI
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Lighthouse CI
+        run: npx --yes @lhci/cli@0.14.0 autorun --config=.lighthouserc.json
+      - name: Upload Lighthouse report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-report
+          path: .lighthouseci/
+
+  build:
+    name: Build Pages artifact
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Regenerate plots (ensure assets present)
+        run: node scripts/build-plots.mjs
       - name: Setup Pages
         uses: actions/configure-pages@v5
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: .
 
   deploy:
+    name: Deploy to GitHub Pages
     needs: build
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

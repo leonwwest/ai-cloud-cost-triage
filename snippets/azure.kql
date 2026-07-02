@@ -1,0 +1,23 @@
+# snippets/azure.kql - Log Analytics / App Insights KQL queries
+# See: steps 4, 7
+
+// --- Token distribution + top consumers over last 24h ---
+let span = 24h;
+AIAgentLLMCall
+| where timestamp > ago(span)
+| summarize req=count(), p50=percentile(prompt_tokens,50),
+            p95=percentile(prompt_tokens,95), p99=percentile(prompt_tokens,99),
+            cost=sum(todouble(cost)) by agent_version, dataSource
+| where p95 > p50 * 3   // only requests with blowup
+| order by cost desc
+
+// --- Trace hops per trace-id (find observability gaps) ---
+AppTraces
+| where operation_Id == "<trace-id>"
+| project timestamp, name, severityLevel, message
+| order by timestamp asc
+
+// --- Cost/hour for the anomaly alert rule ---
+AIAgentLLMCall
+| summarize cost = sum(todouble(cost)) by bin(1h)
+| where cost > 20   // EUR/h threshold

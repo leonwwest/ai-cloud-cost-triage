@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Cloud Cost &amp; Access Triage</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161a21; --panel-2: #1d222b; --ink: #e6e9ef;
+    --muted: #9aa4b2; --line: #2a313c; --accent: #4f9cf9; --warn: #f5a623;
+    --stop: #ff6b6b; --ok: #3ddc97;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; scroll-behavior: smooth; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55; font-size: 15px; }
+  .wrap { max-width: 1000px; margin: 0 auto; padding: 40px 28px 80px; }
+  nav.top { position: sticky; top: 0; z-index: 10; background: rgba(15,17,21,.92);
+    backdrop-filter: blur(6px); border-bottom: 1px solid var(--line);
+    margin: 0 -28px 26px; padding: 10px 28px; display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12.5px; }
+  nav.top a { color: var(--muted); text-decoration: none; }
+  nav.top a:hover { color: var(--ink); }
+  nav.top .lang { margin-left: auto; color: var(--accent); }
+  header h1 { font-size: 30px; margin: 0 0 6px; letter-spacing: -0.01em; }
+  header .sub { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .scenario { background: linear-gradient(180deg, rgba(79,156,249,.10), rgba(79,156,249,.02));
+    border: 1px solid rgba(79,156,249,.35); border-radius: 12px; padding: 16px 18px; margin: 22px 0 26px; }
+  .scenario .tag { display: inline-block; font-size: 11px; text-transform: uppercase;
+    letter-spacing: .08em; color: var(--accent); margin-bottom: 6px; }
+  .scenario p { margin: 6px 0 0; color: #cfd6e1; }
+  .flow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 0 0 26px; font-family: var(--mono); font-size: 12px; }
+  .flow .chip { background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 5px 11px; color: var(--ink); }
+  .flow .arr { color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
+  .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; break-inside: avoid; }
+  .step .num { font-family: var(--mono); font-size: 12px; color: var(--accent); background: rgba(79,156,249,.12); border: 1px solid rgba(79,156,249,.3); width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; margin-right: 10px; }
+  .step h3 { display: inline; font-size: 16px; margin: 0; vertical-align: middle; }
+  .step .head { display: flex; align-items: center; margin-bottom: 10px; }
+  .step h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  .step ul { margin: 0; padding-left: 18px; }
+  .step li { margin: 4px 0; color: #cdd3de; }
+  code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); color: #e6e9ef; }
+  .stop { margin-top: 12px; background: rgba(255,107,107,.08); border-left: 3px solid var(--stop); border-radius: 6px; padding: 8px 12px; font-size: 13px; color: #f3c8c8; }
+  .stop strong { color: var(--stop); }
+  section.block { margin: 34px 0 0; scroll-margin-top: 64px; }
+  section.block > h2 { font-size: 19px; border-bottom: 1px solid var(--line); padding-bottom: 8px; margin-bottom: 14px; }
+  section.block > p.lead { color: var(--muted); margin-top: -6px; margin-bottom: 14px; font-size: 13.5px; }
+  pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; color: #cdd3de; }
+  pre .c { color: #6b7686; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  td code { white-space: nowrap; }
+  .figure { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin: 10px 0 16px; }
+  .figure .cap { color: var(--muted); font-size: 12.5px; margin-top: 8px; text-align: center; }
+  .plots { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 760px) { .plots { grid-template-columns: 1fr 1fr; } }
+  svg { width: 100%; height: auto; display: block; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tabs button { background: var(--panel-2); color: var(--muted); border: 1px solid var(--line); border-radius: 8px 8px 0 0; padding: 6px 12px; font-size: 12.5px; cursor: pointer; font-family: inherit; }
+  .tabs button.active { color: var(--ink); border-color: var(--accent); background: var(--panel); }
+  .tabpane { display: none; }
+  .tabpane.active { display: block; }
+  ol.timeline { list-style: none; margin: 0; padding: 0; }
+  ol.timeline li { position: relative; padding: 0 0 18px 26px; border-left: 2px solid var(--line); margin-left: 6px; }
+  ol.timeline li::before { content: ""; position: absolute; left: -7px; top: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); border: 2px solid var(--bg); }
+  ol.timeline li.stop::before { background: var(--stop); }
+  ol.timeline li .t { font-family: var(--mono); font-size: 11.5px; color: var(--accent); }
+  ol.timeline li h4 { margin: 2px 0 4px; font-size: 14px; }
+  ol.timeline li p { margin: 0; color: #cdd3de; font-size: 13.5px; }
+  table.checklist td:first-child { width: 28px; text-align: center; font-size: 16px; color: var(--accent); }
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+  @media print {
+    body { background: #fff; color: #111; } .wrap { padding: 8px; } nav.top { display: none; }
+    .scenario, .step, pre, table, .figure { background: #f7f7f8; color: #111; border-color: #ccc; }
+    .flow .chip { background: #f0f0f2; border-color: #ccc; color: #111; }
+    .stop { background: #fff0f0; color: #7a1d1d; } .stop strong { color: #b32020; }
+    code { background: #ececef; color: #111; border-color: #ccc; } th { color: #555; }
+    .step .num { color: #1b5fa6; background: #e7f0fd; border-color: #b9d8f7; }
+    .tabpane { display: block !important; } .tabs { display: none; }
+    ol.timeline li { border-left-color: #aaa; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <nav class="top">
+    <a href="#fluss">Flow</a>
+    <a href="#architektur">Architecture</a>
+    <a href="#plots">Sample Data</a>
+    <a href="#schritte">9 Steps</a>
+    <a href="#metrics">Metrics</a>
+    <a href="#snippets">CLI Snippets</a>
+    <a href="#iac">Budget as Code</a>
+    <a href="#postmortem">Post-Mortem</a>
+    <a href="#checkliste">Checklist</a>
+    <a class="lang" href="index.html">DE</a>
+  </nav>
+
+  <header>
+    <h1>AI-Cloud Cost &amp; Access Triage</h1>
+    <div class="sub">Mini-portfolio piece &middot; single-page triage runbook for internal AI agents</div>
+  </header>
+
+  <div class="scenario">
+    <span class="tag">Scenario</span>
+    <p>A team uses an internal AI agent. Costs spike suddenly and noticeably. At the same time, responses reference wrong / unauthorized data sources. Both symptoms appearing together = typically <strong>one shared root cause</strong> (e.g., misconfigured data-source connector, wrong API key, leaking prompt context, rolled-out RBAC change).</p>
+  </div>
+
+  <section class="block" id="fluss" style="margin-top:0">
+    <h2>Triage Flow</h2>
+    <div class="flow">
+      <span class="chip">1 Symptom</span><span class="arr">&rarr;</span>
+      <span class="chip">2 User/Team</span><span class="arr">&rarr;</span>
+      <span class="chip">3 Model/API-Key</span><span class="arr">&rarr;</span>
+      <span class="chip">4 Token Cost</span><span class="arr">&rarr;</span>
+      <span class="chip">5 IAM/RBAC</span><span class="arr">&rarr;</span>
+      <span class="chip">6 Private Endpoint/Network</span><span class="arr">&rarr;</span>
+      <span class="chip">7 Logs/Traces</span><span class="arr">&rarr;</span>
+      <span class="chip">8 Budget Alert</span><span class="arr">&rarr;</span>
+      <span class="chip">9 Escalation</span>
+    </div>
+    <table>
+      <thead><tr><th>#</th><th>Step</th><th>Goal</th><th>Stop Indicator</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><strong>Symptom</strong></td><td>Quantify the observation</td><td>Cost/quality spikes correlated?</td></tr>
+        <tr><td>2</td><td><strong>User/Team</strong></td><td>Who is affected, who drives it?</td><td>Single user/agent service?</td></tr>
+        <tr><td>3</td><td><strong>Model/API-Key</strong></td><td>Which model, which key?</td><td>Key shared / leaked?</td></tr>
+        <tr><td>4</td><td><strong>Token Cost</strong></td><td>Where do tokens originate?</td><td>Prompt size / retrieval blowup?</td></tr>
+        <tr><td>5</td><td><strong>IAM/RBAC</strong></td><td>Are the accesses authorized?</td><td>Over-privileged principal?</td></tr>
+        <tr><td>6</td><td><strong>Private Endpoint/Network</strong></td><td>Who may talk to whom?</td><td>Data source outside allow-list?</td></tr>
+        <tr><td>7</td><td><strong>Logs/Traces</strong></td><td>What actually happened?</td><td>Trace shows cross-talk?</td></tr>
+        <tr><td>8</td><td><strong>Budget Alert</strong></td><td>Is early warning working?</td><td>Alert fired / ignored?</td></tr>
+        <tr><td>9</td><td><strong>Escalation</strong></td><td>Who needs to be involved?</td><td>Security suspicion &rarr; route to IR</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block" id="architektur">
+    <h2>Architecture &amp; Control Points</h2>
+    <p class="lead">Where in the agent path do cost-cap, RBAC, and private endpoint sit &mdash; and where the „wrong data" seeps in.</p>
+    <div class="figure">
+      <svg viewBox="0 0 760 300" role="img" aria-label="Agent architecture with control points">
+        <defs>
+          <marker id="arr" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#4f9cf9"/>
+          </marker>
+          <marker id="arrR" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L9,4.5 L0,9 z" fill="#ff6b6b"/>
+          </marker>
+        </defs>
+        <rect x="540" y="20" width="210" height="150" rx="10" fill="none" stroke="#f5a623" stroke-width="1.4" stroke-dasharray="6 5"/>
+        <text x="548" y="16" fill="#f5a623" font-size="11" font-family="monospace">Private Endpoint / VNet Perimeter</text>
+
+        <rect x="24"  y="130" width="96"  height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
+        <text x="72"  y="156" fill="#e6e9ef" font-size="13" text-anchor="middle">User</text>
+
+        <rect x="180" y="130" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
+        <text x="240" y="151" fill="#e6e9ef" font-size="13" text-anchor="middle">AI Agent</text>
+        <text x="240" y="166" fill="#9aa4b2" font-size="10" text-anchor="middle">Orchestrator</text>
+
+        <rect x="360" y="70"  width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
+        <text x="420" y="91"  fill="#e6e9ef" font-size="13" text-anchor="middle">RAG / Retrieval</text>
+        <text x="420" y="106" fill="#9aa4b2" font-size="10" text-anchor="middle">Connector</text>
+
+        <rect x="360" y="190" width="120" height="44" rx="8" fill="#1d222b" stroke="#4f9cf9"/>
+        <text x="420" y="211" fill="#e6e9ef" font-size="13" text-anchor="middle">LLM Model</text>
+        <text x="420" y="226" fill="#9aa4b2" font-size="10" text-anchor="middle">API</text>
+
+        <rect x="560" y="36"  width="170" height="40" rx="8" fill="#1d222b" stroke="#3ddc97"/>
+        <text x="645" y="60"  fill="#e6e9ef" font-size="12" text-anchor="middle">Data Source A (allowed)</text>
+
+        <rect x="560" y="100" width="170" height="40" rx="8" fill="#1d222b" stroke="#ff6b6b"/>
+        <text x="645" y="124" fill="#e6e9ef" font-size="12" text-anchor="middle">Data Source B (foreign)</text>
+
+        <line x1="120" y1="152" x2="176" y2="152" stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="300" y1="140" x2="356" y2="98"  stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="300" y1="166" x2="356" y2="208" stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="360" y1="205" x2="306" y2="176" stroke="#4f9cf9" stroke-width="1.4" stroke-dasharray="4 4" marker-end="url(#arr)"/>
+        <line x1="480" y1="84"  x2="556" y2="58"  stroke="#4f9cf9" stroke-width="2" marker-end="url(#arr)"/>
+        <line x1="480" y1="100" x2="556" y2="120" stroke="#ff6b6b" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrR)"/>
+
+        <rect x="300" y="176" width="120" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/>
+        <text x="360" y="190" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">Cost-Cap / Rate-Limit</text>
+
+        <rect x="492" y="64" width="84" height="20" rx="10" fill="rgba(245,166,35,.14)" stroke="#f5a623"/>
+        <text x="534" y="78" fill="#f5a623" font-size="10.5" text-anchor="middle" font-family="monospace">IAM / RBAC</text>
+
+        <text x="300" y="290" fill="#9aa4b2" font-size="11" font-family="monospace">red dashed = path to "wrong data" &mdash; typical shared root cause for cost↑ + wrong-answer↑</text>
+      </svg>
+      <div class="cap">Agent path with control points. The red dashed path (RAG &rarr; Source B) is the prime suspect.</div>
+    </div>
+  </section>
+
+  <section class="block" id="plots">
+    <h2>Sample Data &amp; Plots</h2>
+    <p class="lead">Fictional but typical patterns &mdash; exactly the signature that signals a shared root cause.</p>
+    <div class="plots">
+      <div class="figure">
+        <svg viewBox="0 0 660 210" role="img" aria-label="Cost per day">
+          <line x1="40" y1="180" x2="640" y2="180" stroke="#2a313c" stroke-width="1.5"/>
+          <line x1="40" y1="20"  x2="40"  y2="180" stroke="#2a313c" stroke-width="1.5"/>
+          <line x1="50" y1="169" x2="596" y2="169" stroke="#3ddc97" stroke-width="1.4" stroke-dasharray="5 4"/>
+          <text x="600" y="172" fill="#3ddc97" font-size="10" font-family="monospace">7d baseline</text>
+          <polyline points="50,170 92,168 134,171 176,169 218,170 260,167 302,168 344,169 386,166 428,99 470,78 512,61 554,48 596,37"
+                    fill="none" stroke="#4f9cf9" stroke-width="2.4"/>
+          <circle cx="428" cy="99" r="4" fill="#ff6b6b"/>
+          <line x1="428" y1="99" x2="428" y2="36" stroke="#ff6b6b" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="436" y="40" fill="#ff6b6b" font-size="11" font-family="monospace">Spike from day 10</text>
+          <text x="50"  y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">1</text>
+          <text x="428" y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">10</text>
+          <text x="596" y="198" fill="#9aa4b2" font-size="10" font-family="monospace" text-anchor="middle">14</text>
+          <text x="20"  y="180" fill="#9aa4b2" font-size="10" font-family="monospace">$0</text>
+          <text x="10"  y="40"  fill="#9aa4b2" font-size="10" font-family="monospace">$170</text>
+          <text x="300" y="14"  fill="#e6e9ef" font-size="12" text-anchor="middle">Cost / Day (14 days)</text>
+        </svg>
+        <div class="cap">Costs stay near baseline for 9 days, then jump 7&times;. Correlates with first „wrong data" tickets.</div>
+      </div>
+      <div class="figure">
+        <svg viewBox="0 0 660 210" role="img" aria-label="Prompt token distribution">
+          <line x1="40" y1="190" x2="640" y2="190" stroke="#2a313c" stroke-width="1.5"/>
+          <line x1="40" y1="20"  x2="40"  y2="190" stroke="#2a313c" stroke-width="1.5"/>
+          <rect x="120" y="182" width="30" height="8"   fill="#4f9cf9"/>
+          <rect x="156" y="177" width="30" height="13"  fill="#4f9cf9"/>
+          <rect x="192" y="171" width="30" height="19"  fill="#4f9cf9"/>
+          <rect x="400" y="182" width="30" height="8"   fill="#ff6b6b"/>
+          <rect x="436" y="83"  width="30" height="107" fill="#ff6b6b"/>
+          <rect x="472" y="30"  width="30" height="160" fill="#ff6b6b"/>
+          <text x="171" y="204" fill="#9aa4b2" font-size="11" text-anchor="middle" font-family="monospace">before incident</text>
+          <text x="451" y="204" fill="#9aa4b2" font-size="11" text-anchor="middle" font-family="monospace">during incident</text>
+          <text x="135" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P50</text>
+          <text x="171" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P95</text>
+          <text x="207" y="166" fill="#cdd3de" font-size="9"  text-anchor="middle">P99</text>
+          <text x="415" y="170" fill="#cdd3de" font-size="9"  text-anchor="middle">P50</text>
+          <text x="451" y="77"  fill="#ff6b6b" font-size="10" text-anchor="middle">P95</text>
+          <text x="487" y="24"  fill="#ff6b6b" font-size="10" text-anchor="middle">P99</text>
+          <text x="300" y="14"  fill="#e6e9ef" font-size="12" text-anchor="middle">Prompt Tokens / Request (P50/P95/P99)</text>
+        </svg>
+        <div class="cap">P50 unchanged &mdash; but P95/P99 explode: clear signal for retrieval/loop blowup in outlier requests.</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="schritte">
+    <h2>The 9 Steps in Detail</h2>
+    <div class="grid">
+
+      <div class="step">
+        <div class="head"><span class="num">1</span><h3>Symptom &mdash; Quantify the observation</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Cost delta: daily/hourly average vs. 7-day baseline (absolute and per call).</li>
+          <li>Answer quality: which responses reference wrong data? Reproducible?</li>
+          <li>Time correlation: when did <em>both</em> symptoms start? Same timestamp = shared cause.</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Metrics plot for 14 days: <code>cost/day</code>, <code>tokens/req</code>, <code>error_rate</code>, mismatch tickets.</li>
+          <li>Pin sample queries referencing the wrong data source (golden case).</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> cost and quality symptoms start at the same timestamp &rarr; treat as <em>one</em> incident.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">2</span><h3>User/Team &mdash; Affected &amp; culprit</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Which teams/users report wrong answers? Concentrated or spread?</li>
+          <li>Which agent service / <code>agent_version</code> produces the cost?</li>
+          <li>Recent changes: feature rollout, new data connector, prompt change?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Group calls by <code>tenant/team/user_id</code> and <code>agent_version</code>.</li>
+          <li>Diff the last deployment (prompt template, tool/function definitions, retrieval sources).</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> a single service account or <code>agent_version</code> dominates &rarr; narrow down there.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">3</span><h3>Model/API-Key &mdash; Which model, which key</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Costlier model deployed? (<code>gpt-4o</code> vs. <code>4o-mini</code>, <code>claude-opus</code> vs. <code>sonnet</code>).</li>
+          <li>API key origin: production vs. test/shared key? Rotation date?</li>
+          <li>Routing: fallback to costlier model on error? RAG enabled?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Per key: <code>requests</code>, <code>tokens_in/out</code>, <code>cost</code> for last 24h from billing/usage API.</li>
+          <li>Check key usage for anomalies (unexplained usage = possible leak).</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> key appears in code/logs/public repos &rarr; <strong>rotate immediately</strong>, treat as possible abuse.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">4</span><h3>Token Cost &mdash; Where tokens originate</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Prompt tokens vs. completion tokens. High prompt tokens = context/retrieval blowup.</li>
+          <li>System prompt size per request; bundled docs/tool definitions.</li>
+          <li>Loops/retries: does the agent call the model multiple times per task?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Distribution of <code>prompt_tokens</code> per request (P50/P95/P99). P95 &raquo; P50 = outliers.</li>
+          <li>Inspect top-10 requests by token usage &rarr; often 1&ndash;2 main culprits.</li>
+          <li>Check prompt caching for static system prompts.</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> prompt-tokens P95 suddenly 5&ndash;10&times; higher &rarr; suspect data-source context / loop.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">5</span><h3>IAM/RBAC &mdash; Are accesses authorized</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Agent identity: managed identity / service principal / user?</li>
+          <li>Granted vs. needed permissions (least privilege): Blob-Reader vs. Contributor.</li>
+          <li>Is there an allow-list of tools/data sources?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Read effective permissions of the agent principal per data source.</li>
+          <li>Recent RBAC changes on principal / data sources (audit log).</li>
+          <li>Access to sources <em>outside</em> the intended scope? &rarr; explains „wrong data".</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> principal is <code>Contributor</code>/<code>Owner</code> at broad scope &rarr; over-privilege is likely cause.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">6</span><h3>Private Endpoint/Network &mdash; Who may talk to whom</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Does the agent only talk to allow-listed endpoints? (Private Endpoint, VNet/Subnet, egress rules).</li>
+          <li>New data source connected via public IP / non-private endpoint?</li>
+          <li>DNS: does the name resolve to the private endpoint or publicly?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Check egress/NSG flow logs for last 24h &rarr; unexpected target IPs/domains.</li>
+          <li>Verify every used source is reachable via Private/Service Endpoint.</li>
+          <li>RAG connector using a public endpoint? Data may come from another tenant/workspace.</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> agent reaches sources outside the network perimeter &rarr; cause for „wrong data" + uncontrolled fetches.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">7</span><h3>Logs/Traces &mdash; What actually happened</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>End-to-end trace: User &rarr; Agent &rarr; Retrieval &rarr; Data source &rarr; Model &rarr; Response.</li>
+          <li>Were multiple sources queried? What ended up in the prompt context?</li>
+          <li>Tool/function call logs: which tools, which arguments?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Pull distributed tracing (trace ID) for sample cases.</li>
+          <li>Reconstruct prompt context of a wrong answer &rarr; injected sources.</li>
+          <li>Follow correlation ID across all hops; missing spans = observability gaps.</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> trace shows retrieval from unexpected source &rarr; proves the cause; fix in step 5/6.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">8</span><h3>Budget Alert &mdash; Is early warning working</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Was there a budget/anomaly alert? When did it fire?</li>
+          <li>Was it ignored / not routed (email silo, missing paging)?</li>
+          <li>Are thresholds realistic? Anomaly detection vs. fixed threshold.</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Check alert history for 14 days; latency between event and alert.</li>
+          <li>Add alerting on <code>tokens/req</code> P95 and <code>cost/hour</code> (not just <code>cost/day</code>).</li>
+          <li>Clarify ownership; add runbook link to the alert.</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> alert fired but sat 6+&nbsp;h unattended &rarr; post-incident, review alerting/on-call process too.</div>
+      </div>
+
+      <div class="step">
+        <div class="head"><span class="num">9</span><h3>Escalation &mdash; Who needs to be involved</h3></div>
+        <h4>What to check</h4>
+        <ul>
+          <li>Security suspicion? (leaked key, foreign data source, unauthorized egress).</li>
+          <li>Cost damage so far (for stakeholder communication).</li>
+          <li>Who owns it: platform, security, data owner, product owner?</li>
+        </ul>
+        <h4>Concrete action</h4>
+        <ul>
+          <li>Security suspicion &rarr; immediately trigger IR, rotate key, temporarily lock principal.</li>
+          <li>Path: L1 (Platform/Dev) &rarr; L2 (Security) &rarr; L3 (Data Owner + Management).</li>
+          <li>Stakeholder update: symptom, impact, working hypothesis, next action, ETA.</li>
+        </ul>
+        <div class="stop"><strong>Stop if:</strong> security indicators (unexplained key usage, cross-tenant) &rarr; <strong>do not</strong> debug further; hand to IR owner, preserve evidence.</div>
+      </div>
+
+    </div>
+  </section>
+
+  <section class="block" id="metrics">
+    <h2>Metrics Glossary</h2>
+    <p class="lead">The KPIs embedded in each step of the flow &mdash; with definition and formula.</p>
+    <table>
+      <thead><tr><th>Metric</th><th>Definition</th><th>Formula</th><th>Why it matters</th></tr></thead>
+      <tbody>
+        <tr><td><code>cost/day</code></td><td>Total daily model API cost</td><td><code>Σ price_in·tin + price_out·tout</code></td><td>Baseline &amp; spike detection (steps 1, 8)</td></tr>
+        <tr><td><code>cost/req</code></td><td>Average cost per agent task</td><td><code>cost / requests</code></td><td>Distinguishes more calls vs. costlier calls (steps 2, 3)</td></tr>
+        <tr><td><code>tokens/req P95</code></td><td>95th percentile of prompt tokens per request</td><td><code>percentile(prompt_tokens, 0.95)</code></td><td>Detects retrieval/loop blowup (step 4)</td></tr>
+        <tr><td><code>prompt/completion ratio</code></td><td>Input to output token ratio</td><td><code>t_in / t_out</code></td><td>High = context blowup, low = verbose completion (step 4)</td></tr>
+        <tr><td><code>mismatch-rate</code></td><td>Share of answers referencing wrong source</td><td><code>mismatched / total</code></td><td>Quantifies the „wrong data" symptom (steps 1, 7)</td></tr>
+        <tr><td><code>effective-permission-scope</code></td><td>Number of data sources the principal can reach</td><td><code>|allow_list ∩ actual_scope|</code></td><td>Over-privilege indicator (step 5)</td></tr>
+        <tr><td><code>egress-anomaly-count</code></td><td>Target IPs/domains outside allow-list per hour</td><td><code>count(egress ∉ allowlist)</code></td><td>Network perimeter violation (step 6)</td></tr>
+        <tr><td><code>trace-completeness</code></td><td>Share of hops with a span in the trace</td><td><code>spans / expected_hops</code></td><td>Observability gaps (step 7)</td></tr>
+        <tr><td><code>alert-latency</code></td><td>Time between event and fired alert</td><td><code>alert_time − event_time</code></td><td>Early-warning quality (step 8)</td></tr>
+        <tr><td><code>MTTR</code></td><td>Mean Time to Remediate</td><td><code>resolve_time − detect_time</code></td><td>Post-mortem KPI (step 9)</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block" id="snippets">
+    <h2>Cloud CLI &amp; Query Snippets</h2>
+    <p class="lead">Copy-paste commands per cloud. Raw files in <code>snippets/</code> in the repo.</p>
+    <div class="tabs" role="tablist">
+      <button class="active" data-tab="azure">Azure</button>
+      <button data-tab="aws">AWS</button>
+      <button data-tab="gcp">GCP</button>
+      <button data-tab="kql">Log Analytics (KQL)</button>
+    </div>
+
+    <div class="tabpane active" data-pane="azure">
+<pre><span class="c"># Cost &amp; usage per API key / model (Azure Cost Management)</span>
+az consumption usage list --top 50 \
+  --query "[?contains(instanceName,'ai-agent')].{name:instanceName, cost:pretaxCost, date:usageStart}"
+
+<span class="c"># Effective permissions of the agent principal on data sources</span>
+az role assignment list --assignee &lt;agent-object-id&gt; --all \
+  --query "[].{role:roleDefinitionName, scope:scope}" -o table
+
+<span class="c"># Last RBAC changes (Activity Log)</span>
+az monitor activity-log list --caller &lt;agent-object-id&gt; \
+  --status Succeeded --resource-type "Microsoft.Authorization/roleAssignments"
+
+<span class="c"># Private Endpoint connections of a Storage account</span>
+az storage account show --name &lt;storage&gt; --query "privateEndpointConnections"
+</pre>
+    </div>
+    <div class="tabpane" data-pane="aws">
+<pre><span class="c"># Cost Explorer: daily cost per service/tag (AWS)</span>
+aws ce get-cost-and-usage \
+  --time-period Start=2026-06-01,End=2026-07-02 \
+  --granularity DAILY --metrics "UnblendedCost" \
+  --group-by Type=TAG,Key=agent_version Type=SERVICE
+
+<span class="c"># CloudWatch Logs Insights: token distribution per request</span>
+aws logs start-query --log-group-name /ai/agent \
+  --start-time $(date -d '7 days ago' +%s) --end-time $(date +%s) \
+  --query-string 'filter event="llm_call"
+  | stats pct(prompt_tokens,95) as p95, pct(prompt_tokens,99) as p99 by bin(1h)'
+
+<span class="c"># IAM: list policies of the agent service role</span>
+aws iam list-attached-role-policies --role-name AgentServiceRole
+aws iam get-role --role-name AgentServiceRole --query "Role.MaxSessionDuration"
+</pre>
+    </div>
+    <div class="tabpane" data-pane="gcp">
+<pre><span class="c"># GCP Billing: daily cost per label (agent_version)</span>
+gcloud billing accounts list
+gcloud alpha billing accounts describe &lt;ACCOUNT&gt; --format="value(displayName)"
+
+<span class="c"># BigQuery: token cost export aggregated per request</span>
+bq query --use_legacy_sql=false '
+  SELECT agent_version, APPROX_QUANTILES(prompt_tokens, 100)[OFFSET(95)] AS p95,
+         SUM(cost) AS cost
+  FROM `proj.ai.token_usage`
+  WHERE _PARTITIONDATE &gt;= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 7 DAY)
+  GROUP BY agent_version ORDER BY cost DESC'
+
+<span class="c"># IAM effective permissions (Policy Analyzer)</span>
+gcloud asset analyze-iam-policy --full-resource-name=&lt;RESOURCE&gt; \
+  --permissions="storage.objects.get" --format=json
+</pre>
+    </div>
+    <div class="tabpane" data-pane="kql">
+<pre><span class="c">// AppInsights/Log Analytics: token distribution + top consumers</span>
+let span = 24h;
+AIAgentLLMCall
+| where timestamp &gt; ago(span)
+| summarize req=count(), p50=percentile(prompt_tokens,50),
+            p95=percentile(prompt_tokens,95), p99=percentile(prompt_tokens,99),
+            cost=sum(todouble(cost)) by agent_version, dataSource
+| where p95 &gt; p50 * 3   <span class="c">// only requests with blowup</span>
+| order by cost desc
+
+<span class="c">// Trace hops per trace ID (find observability gaps)</span>
+AppTraces
+| where operation_Id == "&lt;trace-id&gt;"
+| project timestamp, name, severityLevel, message
+| order by timestamp asc
+</pre>
+    </div>
+  </section>
+
+  <section class="block" id="iac">
+    <h2>Budget Alert &amp; Cost-Cap as Code</h2>
+    <p class="lead">Budget + anomaly alert + action group as infrastructure-as-code. Files: <code>infra/budget.tf</code> (Terraform) &amp; <code>infra/budget.bicep</code>.</p>
+    <div class="tabs" role="tablist">
+      <button class="active" data-tab="tf">Terraform</button>
+      <button data-tab="bicep">Bicep</button>
+    </div>
+    <div class="tabpane active" data-pane="tf">
+<pre><span class="c"># infra/budget.tf — Budget + Anomaly Alert + Action Group (Azure)</span>
+resource "azurerm_resource_group" "ai" {
+  name     = "rg-ai-agent"
+  location = var.location
+}
+
+resource "azurerm_monitor_action_group" "oncall" {
+  name                = "ag-ai-oncall"
+  resource_group_name = azurerm_resource_group.ai.name
+  short_name          = "aiOnCall"
+  email_receiver {
+    name          = "platform"
+    email_address = "platform-oncall@example.com"
+  }
+}
+
+resource "azurerm_consumption_budget_resource_group" "agent" {
+  name              = "budget-ai-agent"
+  resource_group_id = azurerm_resource_group.ai.id
+  amount                = 500                       <span class="c"># EUR / month</span>
+  time_grain            = "Monthly"
+  time_period {
+    start_date = "2026-07-01T00:00:00Z"
+    end_date   = "2027-07-01T00:00:00Z"
+  }
+  filter {
+    tag {
+      name  = "agent_version"
+      values = ["prod"]
+    }
+  }
+  notification {
+    enabled   = true
+    threshold = 80                       <span class="c"># % of budget</span>
+    operator  = "GreaterThan"
+    contact_groups = [azurerm_monitor_action_group.oncall.id]
+  }
+  notification {
+    enabled   = true
+    threshold = 100
+    operator  = "GreaterThan"
+    contact_groups = [azurerm_monitor_action_group.oncall.id]
+  }
+}
+
+<span class="c"># Anomaly detection (scheduled query alert on cost/hour)</span>
+resource "azurerm_monitor_scheduled_query_rules_alert" "cost_spike" {
+  name                = "alert-ai-cost-spike"
+  resource_group_name = azurerm_resource_group.ai.name
+  location            = azurerm_resource_group.ai.location
+  severity            = 2
+  frequency           = 5
+  time_window         = 15
+  data_source_id      = var.law_id
+  query               = &lt;&lt;QUERY
+AIAgentLLMCall | summarize cost = sum(todouble(cost)) by bin(1h)
+| where cost &gt; 20   <span class="c"># EUR/h threshold</span>
+QUERY
+  trigger {
+    operator  = "GreaterThan"
+    threshold = 0
+  }
+  action {
+    action_groups = [azurerm_monitor_action_group.oncall.id]
+  }
+}
+</pre>
+    </div>
+    <div class="tabpane" data-pane="bicep">
+<pre><span class="c">// infra/budget.bicep — Budget + Alert (Azure)</span>
+param location string = resourceGroup().location
+param budgetAmount int = 500
+param oncallEmail string = 'platform-oncall@example.com'
+
+resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: 'ag-ai-oncall'
+  location: 'global'
+  properties: {
+    groupShortName: 'aiOnCall'
+    enabled: true
+    emailReceivers: [{
+      name: 'platform'
+      emailAddress: oncallEmail
+      useCommonAlertSchema: true
+    }]
+  }
+}
+
+resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
+  name: 'budget-ai-agent'
+  properties: {
+    amount: budgetAmount
+    timeGrain: 'Monthly'
+    timePeriod: {
+      startDate: '2026-07-01T00:00:00Z'
+      endDate:   '2027-07-01T00:00:00Z'
+    }
+    filter: {
+      tags: { name: 'agent_version', values: ['prod'] }
+    }
+    notifications: {
+      warn80: { enabled: true, operator: 'GreaterThan', threshold: 80, contactEmails: [oncallEmail] }
+      over100: { enabled: true, operator: 'GreaterThan', threshold: 100, contactEmails: [oncallEmail] }
+    }
+  }
+}
+
+<span class="c">// Cost-Cap as application-layer circuit breaker (pseudocode)</span>
+<span class="c">// if hourlyCost &gt; threshold: disableRagConnector('B'); throttleModel('mini')</span>
+</pre>
+    </div>
+  </section>
+
+  <section class="block" id="postmortem">
+    <h2>Worked Post-Mortem &mdash; Case #042</h2>
+    <p class="lead">A walkthrough showing how the flow uncovers a shared root cause.</p>
+    <div class="figure">
+      <table>
+        <tr><th style="width:130px">Incident</th><td>INC-2026-042 &middot; AI agent „HelpDesk v3" &middot; P2 &middot; Duration 3h 20min</td></tr>
+        <tr><th>Symptom</th><td>Cost +680% in 14h; 7 users report answers referencing <em>HR data</em> instead of the HelpDesk knowledge base.</td></tr>
+        <tr><th>Impact</th><td>~$1,450 extra spend; 3 users briefly shown wrong content; no PII leaked (verified via trace).</td></tr>
+        <tr><th>Root Cause</th><td>New RAG connector in <code>v3.2.0</code> pointed to <strong>wrong workspace</strong> (HR instead of HelpDesk) via public endpoint. Service principal had <code>Storage Blob Data Contributor</code> at subscription scope, so access succeeded. Large HR context blew prompt-tokens P95 from 3.5k to 28k.</td></tr>
+        <tr><th>Detection Gap</th><td>Budget alert fired 6h late (threshold on <code>cost/day</code> only, not <code>cost/hour</code>); alert routed to a stale email list.</td></tr>
+        <tr><th>Fix (first hour)</th><td>Cost-cap on &rarr; agent throttled; HR connector disabled; rolled back <code>v3.2.0</code> to <code>v3.1.7</code>; principal scoped down to Blob-Reader + resource scope.</td></tr>
+        <tr><th>Lasting Fix</th><td>RAG source allow-list enforced in CI gate; Private Endpoint mandatory for HR storage; alerting on <code>cost/hour</code> &amp; <code>tokens/req P95</code>; routed to PagerDuty.</td></tr>
+        <tr><th>Lessons</th><td>(1) RBAC scope is a cost driver. (2) Daily thresholds are too slow. (3) Data-source changes need review gates like code changes.</td></tr>
+      </table>
+    </div>
+    <h4 style="margin-top:18px">Triage Timeline</h4>
+    <ol class="timeline">
+      <li><span class="t">T+0</span><h4>Symptom recognized</h4><p>FinOps asks about cost spike; simultaneous ticket wave for „wrong data". Same timestamp &rarr; one incident.</p></li>
+      <li><span class="t">T+15min</span><h4>User/Team &amp; Model</h4><p>Calls by <code>agent_version</code>: 98% of cost from <code>v3.2.0</code>. Key clean, no leak.</p></li>
+      <li><span class="t">T+40min</span><h4>Token Cost</h4><p>Prompt-tokens P95 = 28k (was 3.5k). Top-10 requests all contain HR context.</p></li>
+      <li class="stop"><span class="t">T+1h 05min</span><h4>IAM &amp; Network &mdash; root cause found</h4><p>Effective permissions show Contributor at subscription; HR storage reachable via public IP. = shared cause for cost <em>and</em> wrong data.</p></li>
+      <li><span class="t">T+1h 20min</span><h4>Quick-Fix</h4><p>Cost-cap on, connector off, rollback, principal scoped down. Costs drop immediately.</p></li>
+      <li><span class="t">T+2h</span><h4>Trace Evidence</h4><p>Trace ID shows retrieval from HR workspace in prompt. No cross-tenant, no leak &rarr; no security IR needed.</p></li>
+      <li><span class="t">T+3h 20min</span><h4>Escalation &amp; Close</h4><p>Stakeholder update; lasting fixes logged as action items with owner &amp; ETA.</p></li>
+    </ol>
+  </section>
+
+  <section class="block" id="checkliste">
+    <h2>Triage Checklist (printable)</h2>
+    <p class="lead">Printable &mdash; usable directly during an incident. See also <code>snippets/</code> &amp; <code>infra/</code>.</p>
+    <table class="checklist">
+      <thead><tr><th></th><th>Step / Action</th><th>Owner</th><th>Status</th></tr></thead>
+      <tbody>
+        <tr><td>&#9744;</td><td>Symptom quantified (cost delta + mismatch rate + timestamp)</td><td>L1</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Calls grouped by <code>agent_version</code> / user; deployment diff pulled</td><td>L1</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Model &amp; API key verified; key usage checked for anomalies</td><td>L1/Sec</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Token distribution P50/P95/P99; top-10 consumers inspected</td><td>L1</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Effective permissions per data source; RBAC audit log checked</td><td>Identity</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Egress/flow logs; Private Endpoint reachability verified</td><td>Network</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>End-to-end trace pulled; prompt context reconstructed</td><td>L1</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Budget/anomaly alert history &amp; routing checked</td><td>FinOps</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Escalation path decided (security IR yes/no); stakeholders informed</td><td>L1&rarr;L3</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Quick-fixes active: cost-cap, rate-limit, connector toggled, key rotated (if suspected)</td><td>L1</td><td>open</td></tr>
+        <tr><td>&#9744;</td><td>Post-mortem created; lasting fixes with owner &amp; ETA</td><td>L1</td><td>open</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="block">
+    <h2>Decision Tree (Short Form)</h2>
+<pre>Cost↑ &amp; wrong data at the same time?
+├── yes → suspect shared root cause (Step 1)
+│   ├── one agent_version dominates? → diff deployment (2)
+│   ├── key unexplained / leaked?    → rotate, IR (3,9)
+│   ├── prompt-tokens P95↑?          → retrieval/loop fix (4)
+│   ├── principal over-privileged?   → tighten RBAC (5)
+│   └── egress outside perimeter?    → network fix (6)
+└── no → open separate incidents</pre>
+  </section>
+
+  <section class="block">
+    <h2>Quick-Fixes (first hour)</h2>
+    <ol style="margin:0;padding-left:20px;color:#cdd3de">
+      <li style="margin:6px 0"><strong style="color:var(--ok)">Set cost-cap</strong> &mdash; hard token &amp; cost limit per API key/agent (circuit breaker).</li>
+      <li style="margin:6px 0"><strong style="color:var(--ok)">Throttle rate-limit</strong> &mdash; limit agent throughput until cause is clear.</li>
+      <li style="margin:6px 0"><strong style="color:var(--ok)">Toggle wrong-data source</strong> &mdash; disable affected connector / enforce allow-list.</li>
+      <li style="margin:6px 0"><strong style="color:var(--ok)">Rotate key</strong> &mdash; at any hint of a leak; low effort, high impact.</li>
+      <li style="margin:6px 0"><strong style="color:var(--ok)">Stakeholder brief</strong> &mdash; one-liner: „Cost anomaly + data-access issue, investigation underway, cost-cap active."</li>
+    </ol>
+  </section>
+
+  <section class="block">
+    <h2>Ownership Matrix</h2>
+    <table>
+      <thead><tr><th>Area</th><th>Owner</th><th>Notified when</th></tr></thead>
+      <tbody>
+        <tr><td>Agent platform / model routing</td><td>Platform team</td><td>Cost↑, model switch</td></tr>
+        <tr><td>API keys / secrets</td><td>Platform + Security</td><td>Unexplained key usage</td></tr>
+        <tr><td>Data sources / RAG</td><td>Data owner</td><td>Wrong data access</td></tr>
+        <tr><td>IAM / RBAC</td><td>Identity team</td><td>Over-privilege</td></tr>
+        <tr><td>Network / private endpoints</td><td>Network team</td><td>Egress anomaly</td></tr>
+        <tr><td>Budget / alerting</td><td>FinOps</td><td>Alert fired</td></tr>
+        <tr><td>Security / IR</td><td>Security team</td><td>Leak suspicion, cross-tenant</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    AI-Cloud Cost &amp; Access Triage &middot; Mini-portfolio piece &middot; MIT license &middot; No warranty for production use &middot;
+    <a href="index.html" style="color:var(--accent)">Deutsche Version</a>
+  </footer>
+
+</div>
+
+<script>
+  document.querySelectorAll('.tabs').forEach(g => {
+    const btns = g.querySelectorAll('button');
+    const scope = g.parentElement;
+    btns.forEach(b => b.addEventListener('click', () => {
+      const key = b.dataset.tab;
+      btns.forEach(x => x.classList.toggle('active', x === b));
+      scope.querySelectorAll('.tabpane').forEach(p => p.classList.toggle('active', p.dataset.pane === key));
+    }));
+  });
+</script>
+</body>
+</html>

@@ -74,7 +74,10 @@
   @media (min-width: 760px) { .skills { grid-template-columns: repeat(4,1fr); } }
   .skill { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
   .skill .ic { font-size: 18px; }
-  .skill h4 { margin: 6px 0 3px; font-size: 13px; }
+  .skill h3 { margin: 6px 0 3px; font-size: 13px; }
+  .subh { margin: 18px 0 6px; font-size: 15px; }
+  .skip-link { position: absolute; left: -9999px; top: 0; background: var(--accent); color: #fff; padding: 8px 12px; border-radius: 6px; z-index: 100; }
+  .skip-link:focus { left: 12px; top: 12px; }
   .skill p { margin: 0; color: var(--muted); font-size: 12px; }
 
   .step { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; break-inside: avoid; scroll-margin-top: 70px; }
@@ -98,7 +101,8 @@
 
   pre { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; overflow-x: auto; font-family: var(--mono); font-size: 12.5px; color: #cdd3de; }
   [data-theme="light"] pre { color: #2c3340; }
-  pre .c { color: #6b7686; }
+  pre .c { color: #9aa4b2; }
+  [data-theme="light"] pre .c { color: #5b6675; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
@@ -150,6 +154,7 @@
 </head>
 <body>
 <div class="wrap">
+<a class="skip-link" href="#fluss">Zum Inhalt springen</a>
 
   <nav class="top" aria-label="Abschnittsnavigation">
     <a href="#fluss">Fluss</a>
@@ -213,14 +218,14 @@
     <h2>Was dieses Stück demonstriert</h2>
     <p class="lead">Welche Kompetenzen hinter diesem Runbook stehen &mdash; damit Recruiter und Teams die Punkte nicht selbst verbinden müssen.</p>
     <div class="skills">
-      <div class="skill"><div class="ic">☁️</div><h4>Multi-Cloud</h4><p>Azure, AWS, GCP: Cost, IAM, Netzwerk, Logs</p></div>
-      <div class="skill"><div class="ic">🔑</div><h4>IAM &amp; Least-Privilege</h4><p>RBAC-Scopes, Effective-Permissions, Audit</p></div>
-      <div class="skill"><div class="ic">🏗️</div><h4>Infrastructure as Code</h4><p>Terraform &amp; Bicep: Budget, Alerts, Action-Groups</p></div>
-      <div class="skill"><div class="ic">📈</div><h4>Observability</h4><p>KQL, CloudWatch Insights, Distributed Tracing</p></div>
-      <div class="skill"><div class="ic">💰</div><h4>FinOps &amp; Cost Engineering</h4><p>Tokens/req P95, Cost-Caps, Anomalie-Alerts</p></div>
-      <div class="skill"><div class="ic">🚨</div><h4>Incident Response</h4><p>9-Schritte-Triage, Post-Mortems, Eskalation</p></div>
-      <div class="skill"><div class="ic">🔁</div><h4>CI/CD &amp; SRE</h4><p>GitHub Actions, Lighthouse, Drift-Checks</p></div>
-      <div class="skill"><div class="ic">♿</div><h4>Accessibility</h4><p>ARIA-Tabs, Tastatur-Navi, SVG-Titel, Kontrast</p></div>
+      <div class="skill"><div class="ic">☁️</div><h3>Multi-Cloud</h3><p>Azure, AWS, GCP: Cost, IAM, Netzwerk, Logs</p></div>
+      <div class="skill"><div class="ic">🔑</div><h3>IAM &amp; Least-Privilege</h3><p>RBAC-Scopes, Effective-Permissions, Audit</p></div>
+      <div class="skill"><div class="ic">🏗️</div><h3>Infrastructure as Code</h3><p>Terraform &amp; Bicep: Budget, Alerts, Action-Groups</p></div>
+      <div class="skill"><div class="ic">📈</div><h3>Observability</h3><p>KQL, CloudWatch Insights, Distributed Tracing</p></div>
+      <div class="skill"><div class="ic">💰</div><h3>FinOps &amp; Cost Engineering</h3><p>Tokens/req P95, Cost-Caps, Anomalie-Alerts</p></div>
+      <div class="skill"><div class="ic">🚨</div><h3>Incident Response</h3><p>9-Schritte-Triage, Post-Mortems, Eskalation</p></div>
+      <div class="skill"><div class="ic">🔁</div><h3>CI/CD &amp; SRE</h3><p>GitHub Actions, Lighthouse, Drift-Checks</p></div>
+      <div class="skill"><div class="ic">♿</div><h3>Accessibility</h3><p>ARIA-Tabs, Tastatur-Navi, SVG-Titel, Kontrast</p></div>
     </div>
   </section>
 
@@ -641,7 +646,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
       <ul>
         <li><strong>CI-Gate für RAG-Quellen-Allow-List</strong> &mdash; neue Datenquellen brauchen Review wie Code-Änderungen; CI bricht bei nicht gelisteter Quelle.</li>
         <li><strong>Least-Privilege per IaC</strong> &mdash; Principals nur Resource-Scope + Blob-Reader; Contributor/Owner auf Subscription sind verboten (Policy).</li>
-        <li><strong>Prompt-Size-Limit im Code</strong> &mdash; harte Obergrenze für <code>prompt_tokens</code>; Überschreitung bricht Request + Alert statt тихes Blowup.</li>
+        <li><strong>Prompt-Size-Limit im Code</strong> &mdash; harte Obergrenze für <code>prompt_tokens</code>; Überschreitung bricht Request + Alert statt eines stillen Blowups.</li>
         <li><strong>Cost-Cap &amp; Rate-Limit pro Key</strong> &mdash; Circuit-Breaker im Agent-Layer, nicht nur Cloud-seitig (siehe <code>infra/</code>).</li>
         <li><strong>Recall-/Eval-Gate für Modellwechsel</strong> &mdash; Embedding-/Modell-Änderungen brauchen Eval-Suite (Recall, Mismatch-Rate) in CI.</li>
         <li><strong>Alerting auf P95 &amp; cost/hour</strong> &mdash; nicht nur <code>cost/day</code>; Routing an PagerDuty, nicht nur E-Mail-Liste.</li>
@@ -672,7 +677,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
           <tr><th>Lessons</th><td>(1) RBAC-Scope ist eine Kostenursache. (2) Tages-Thresholds sind zu träge. (3) Datenquellen brauchen Review-Gate wie Code.</td></tr>
         </table>
       </div>
-      <h4 style="margin-top:18px">Triage-Verlauf (Timeline)</h4>
+      <h3 class="subh">Triage-Verlauf (Timeline)</h3>
       <ol class="timeline">
         <li><span class="t">T+0</span><h4>Symptom erkannt</h4><p>FinOps fragt nach Kosten-Spike; gleichzeitig Ticket-Welle „falsche Daten". Selber Timestamp → ein Incident.</p></li>
         <li><span class="t">T+15min</span><h4>User/Team &amp; Modell</h4><p>Nach <code>agent_version</code>: 98&nbsp;% der Kosten aus <code>v3.2.0</code>. Key sauber, kein Leak.</p></li>
@@ -697,7 +702,7 @@ resource budget 'Microsoft.Consumption/budgets@2023-04-01-preview' = {
           <tr><th>Lessons</th><td>(1) Modelländerungen brauchen Eval-Gates. (2) Kompensations-Heuristiken können Kosten amplifizieren. (3) „Falsche Daten" muss nicht „falsche Quelle" heißen &mdash; Recall ist eine Kostenursache.</td></tr>
         </table>
       </div>
-      <h4 style="margin-top:18px">Triage-Verlauf (Timeline)</h4>
+      <h3 class="subh">Triage-Verlauf (Timeline)</h3>
       <ol class="timeline">
         <li><span class="t">T+0</span><h4>Symptom erkannt</h4><p>Kostensteigerung über Tage + Qualitäts-Tickets (veraltete Antworten). Sanfterer Anstieg als #042, aber korreliert.</p></li>
         <li><span class="t">T+30min</span><h4>User/Team &amp; Modell</h4><p>Alle <code>agent_version</code>s betroffen → Ursache im shared RAG-Pfad, nicht in einem Deployment.</p></li>

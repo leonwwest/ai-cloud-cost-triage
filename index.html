@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI-Cloud Cost &amp; Access Triage</title>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #161a21;
+    --panel-2: #1d222b;
+    --ink: #e6e9ef;
+    --muted: #9aa4b2;
+    --line: #2a313c;
+    --accent: #4f9cf9;
+    --warn: #f5a623;
+    --stop: #ff6b6b;
+    --ok: #3ddc97;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.55;
+    font-size: 15px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 28px 80px; }
+  header h1 {
+    font-size: 30px;
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  header .sub { color: var(--muted); font-size: 14px; margin-bottom: 18px; }
+  .scenario {
+    background: linear-gradient(180deg, rgba(79,156,249,.10), rgba(79,156,249,.02));
+    border: 1px solid rgba(79,156,249,.35);
+    border-radius: 12px;
+    padding: 16px 18px;
+    margin: 22px 0 26px;
+  }
+  .scenario .tag {
+    display: inline-block;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+  .scenario p { margin: 6px 0 0; color: #cfd6e1; }
+
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+    margin: 0 0 26px;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .flow .chip {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 5px 11px;
+    color: var(--ink);
+  }
+  .flow .arr { color: var(--muted); }
+
+  .grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 760px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+  .step {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px 18px;
+    break-inside: avoid;
+  }
+  .step .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--accent);
+    background: rgba(79,156,249,.12);
+    border: 1px solid rgba(79,156,249,.3);
+    width: 26px; height: 26px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 8px;
+    margin-right: 10px;
+  }
+  .step h3 { display: inline; font-size: 16px; margin: 0; vertical-align: middle; }
+  .step .head { display: flex; align-items: center; margin-bottom: 10px; }
+  .step h4 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 14px 0 6px; }
+  .step ul { margin: 0; padding-left: 18px; }
+  .step li { margin: 4px 0; color: #cdd3de; }
+  code { font-family: var(--mono); font-size: 12.5px; background: var(--panel-2); padding: 1px 5px; border-radius: 5px; border: 1px solid var(--line); color: #e6e9ef; }
+  .stop {
+    margin-top: 12px;
+    background: rgba(255,107,107,.08);
+    border-left: 3px solid var(--stop);
+    border-radius: 6px;
+    padding: 8px 12px;
+    font-size: 13px;
+    color: #f3c8c8;
+  }
+  .stop strong { color: var(--stop); }
+
+  section.block { margin: 34px 0 0; }
+  section.block > h2 {
+    font-size: 18px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 8px;
+    margin-bottom: 14px;
+  }
+  pre {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 14px 16px;
+    overflow-x: auto;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    color: #cdd3de;
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  td code { white-space: nowrap; }
+  ol.qf { margin: 0; padding-left: 20px; }
+  ol.qf li { margin: 6px 0; color: #cdd3de; }
+  .qf li strong { color: var(--ok); }
+
+  footer { margin-top: 40px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 14px; }
+
+  @media print {
+    body { background: #fff; color: #111; }
+    .wrap { padding: 8px; }
+    .scenario, .step, pre, table { background: #f7f7f8; color: #111; border-color: #ccc; }
+    .flow .chip { background: #f0f0f2; border-color: #ccc; color: #111; }
+    .stop { background: #fff0f0; color: #7a1d1d; }
+    .stop strong { color: #b32020; }
+    code { background: #ececef; color: #111; border-color: #ccc; }
+    th { color: #555; }
+    .step .num { color: #1b5fa6; background: #e7f0fd; border-color: #b9d8f7; }
+    .scenario .tag, section.block > h2 { color: #111; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>AI-Cloud Cost &amp; Access Triage</h1>
+    <div class="sub">Mini-Portfolio-Stück &middot; einseitiger Triage-Runbook für interne AI-Agenten</div>
+  </header>
+
+  <div class="scenario">
+    <span class="tag">Szenario</span>
+    <p>Ein Team nutzt einen internen AI-Agenten. Die Kosten steigen plötzlich und spürbar. Gleichzeitig greifen Antworten auf falsche / nicht autorisierte Datenquellen zu. Beide Symptome zeitgleich = typischerweise <strong>eine gemeinsame Ursache</strong> (z.&nbsp;B. fehlerhafter Datenquellen-Anschluss, falscher API-Key, leakender Prompt-Kontext, ausrollende RBAC-Änderung).</p>
+  </div>
+
+  <div class="flow">
+    <span class="chip">1 Symptom</span><span class="arr">&rarr;</span>
+    <span class="chip">2 User/Team</span><span class="arr">&rarr;</span>
+    <span class="chip">3 Modell/API-Key</span><span class="arr">&rarr;</span>
+    <span class="chip">4 Tokenkosten</span><span class="arr">&rarr;</span>
+    <span class="chip">5 IAM/RBAC</span><span class="arr">&rarr;</span>
+    <span class="chip">6 Private Endpoint/Netzwerk</span><span class="arr">&rarr;</span>
+    <span class="chip">7 Logs/Traces</span><span class="arr">&rarr;</span>
+    <span class="chip">8 Budget-Alert</span><span class="arr">&rarr;</span>
+    <span class="chip">9 Eskalation</span>
+  </div>
+
+  <div class="grid">
+
+    <div class="step">
+      <div class="head"><span class="num">1</span><h3>Symptom &mdash; Beobachtung quantifizieren</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Kosten-Delta: Tages-/Stundenschnitt vs. 7-Tage-Baseline (absolut und pro Aufruf).</li>
+        <li>Antwortqualität: Welche Antworten greifen auf falsche Daten zu? Reproduzierbar?</li>
+        <li>Zeitkorrelation: Wann begannen <em>beide</em> Symptome? Gleicher Timestamp = gemeinsame Ursache.</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Metriken-Plot 14&nbsp;Tage: <code>cost/day</code>, <code>tokens/req</code>, <code>error_rate</code>, Mismatch-Tickets.</li>
+        <li>Beispiel-Queries mit Bezug auf falsche Datenquelle fixieren (Golden-Case).</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Kosten- und Qualitätssymptom zum selben Timestamp starten &rarr; als <em>ein</em> Incident behandeln.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">2</span><h3>User/Team &mdash; Betroffenheit &amp; Verursacher</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Welche Teams/User melden falsche Antworten? Konzentriert oder verteilt?</li>
+        <li>Welcher Agent-Service / welche <code>agent_version</code> produziert die Kosten?</li>
+        <li>Letzte Änderungen: Feature-Rollout, neuer Datenkonnektor, Prompt-Änderung?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Aufrufe nach <code>tenant/team/user_id</code> und <code>agent_version</code> gruppieren.</li>
+        <li>Diff des letzten Deployments (Prompt-Template, Tool-/Function-Definitionen, Retrieval-Quellen).</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> ein Service-Account oder eine <code>agent_version</code> dominiert &rarr; dort eingrenzen.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">3</span><h3>Modell/API-Key &mdash; Welches Modell, welcher Key</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Teureres Modell deployt? (<code>gpt-4o</code> vs. <code>4o-mini</code>, <code>claude-opus</code> vs. <code>sonnet</code>).</li>
+        <li>API-Key-Herkunft: produktiv vs. Test-/Shared-Key? Rotationsdatum?</li>
+        <li>Routing: Fallback auf teureres Modell bei Fehler? RAG aktiviert?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Pro-Key: <code>requests</code>, <code>tokens_in/out</code>, <code>cost</code> der letzten 24&nbsp;h aus Billing-/Usage-API.</li>
+        <li>Key-Usage auf Anomalien prüfen (ungeklärte Nutzung = möglicher Leak).</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Key im Code/Logs/öffentlichen Repos auftaucht &rarr; <strong>sofort rotieren</strong>, als möglichen Missbrauch behandeln.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">4</span><h3>Tokenkosten &mdash; Wo entstehen die Tokens</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Prompt-Tokens vs. Completion-Tokens. Hohe Prompt-Tokens = Kontext-/Retrieval-Blowup.</li>
+        <li>System-Prompt-Größe pro Request; mitgelieferte Doku-/Tool-Definitionen.</li>
+        <li>Schleifen/Retries: ruft der Agent das Modell mehrfach pro Task auf?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Verteilung <code>prompt_tokens</code> pro Request (P50/P95/P99). P95 &raquo; P50 = Ausreißer.</li>
+        <li>Top-10 Requests nach Token-Verbrauch inspizieren &rarr; oft 1&ndash;2 Verursacher.</li>
+        <li>Prompt-Caching für statische System-Prompts prüfen.</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Prompt-Tokens P95 plötzlich 5&ndash;10&times; höher &rarr; verdächtig auf Datenquellen-Kontext / Schleife.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">5</span><h3>IAM/RBAC &mdash; Dürfen die Zugriffe sein</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Identität des Agenten: Managed Identity / Service Principal / User?</li>
+        <li>Verfügte vs. benötigte Berechtigungen (least privilege): Blob-Reader vs. Contributor.</li>
+        <li>Allow-List der Tools/Datenquellen vorhanden?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Effective-Permissions des Principals pro Datenquelle auslesen.</li>
+        <li>Letzte RBAC-Änderungen an Principal / Datenquellen (Audit-Log).</li>
+        <li>Zugriff auf Quellen <em>außerhalb</em> des beabsichtigten Scope? &rarr; erklärt "falsche Daten".</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Principal ist <code>Contributor</code>/<code>Owner</code> auf breitem Scope &rarr; Over-Privilegierung als Ursache.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">6</span><h3>Private Endpoint/Netzwerk &mdash; Wer darf wohin sprechen</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Spricht der Agent nur mit Allow-List-Endpunkten? (Private Endpoint, VNet/Subnet, Egress-Rules).</li>
+        <li>Neue Datenquelle per Public-IP / nicht-privatem Endpunkt angebunden?</li>
+        <li>DNS: löst der Name auf Private Endpoint oder öffentlich auf?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Egress-/NSG-Flow-Logs 24&nbsp;h prüfen &rarr; unerwartete Ziel-IPs/Domains.</li>
+        <li>Jede genutzte Quelle über Private/Service Endpoint verifizieren.</li>
+        <li>RAG-Connector mit Public-Endpoint? Daten könnten von anderem Tenant/Workspace stammen.</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Agent erreicht Quellen außerhalb des Netzwerk-Perimeters &rarr; Ursache für "falsche Daten" + unkontrollierte Abrufe.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">7</span><h3>Logs/Traces &mdash; Was passierte wirklich</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>End-to-End-Trace: User &rarr; Agent &rarr; Retrieval &rarr; Datenquelle &rarr; Modell &rarr; Antwort.</li>
+        <li>Wurden mehrere Quellen abgefragt? Was landete im Prompt-Kontext?</li>
+        <li>Tool-/Function-Call-Logs: welche Tools, welche Argumente?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Distributed-Tracing (Trace-ID) für Beispiel-Fälle ziehen.</li>
+        <li>Prompt-Kontext einer falschen Antwort rekonstruieren &rarr; injizierte Quellen.</li>
+        <li>Correlation-ID durch alle Hops; fehlende Spans = Observability-Lücken.</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Trace zeigt Retrieval aus nicht-erwarteter Quelle &rarr; beweist Ursache; Fix in Schritt 5/6.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">8</span><h3>Budget-Alert &mdash; Greift die Frühwarnung</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Gab es einen Budget-/Anomalie-Alert? Wann hat er gefeuert?</li>
+        <li>Wurde er ignoriert / nicht geroutet (E-Mail-Graben, Paging fehlt)?</li>
+        <li>Schwellen realistisch? Anomalie-Erkennung vs. fixer Threshold.</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Alert-Historie 14&nbsp;Tage; Latenz zwischen Ereignis und Alert.</li>
+        <li>Alerting auf <code>tokens/req</code>-P95 und <code>cost/hour</code> ergänzen.</li>
+        <li>Ownership klären; Runbook-Link im Alert ergänzen.</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Alert gefeuert, aber 6+&nbsp;h unbearbeitet &rarr; Post-Incident auch Alerting-/On-Call-Prozess prüfen.</div>
+    </div>
+
+    <div class="step">
+      <div class="head"><span class="num">9</span><h3>Eskalation &mdash; Wer muss ran</h3></div>
+      <h4>Was prüfen</h4>
+      <ul>
+        <li>Security-Verdacht? (geleakter Key, fremde Datenquelle, unautorisierte Egress).</li>
+        <li>Kostenschaden bisher (für Stakeholder-Kommunikation).</li>
+        <li>Zuständig: Platform, Security, Daten-Owner, Product-Owner?</li>
+      </ul>
+      <h4>Konkrete Aktion</h4>
+      <ul>
+        <li>Security-Verdacht &rarr; sofort IR, Key rotieren, Principal temp. sperren.</li>
+        <li>Pfad: L1 (Platform/Dev) &rarr; L2 (Security) &rarr; L3 (Data Owner + Management).</li>
+        <li>Stakeholder-Update: Symptom, Impact, Hypothese, nächste Aktion, ETA.</li>
+      </ul>
+      <div class="stop"><strong>Stopp, falls:</strong> Security-Indizien (ungeklärte Key-Nutzung, Cross-Tenant) &rarr; <strong>nicht</strong> selbst debuggen, IR-Owner übergeben, Beweise sichern.</div>
+    </div>
+
+  </div>
+
+  <section class="block">
+    <h2>Entscheidungsbaum (Kurzform)</h2>
+<pre>Kosten↑ &amp; falsche Daten gleichzeitig?
+├── ja → gemeinsame Ursache vermuten (Schritt 1)
+│   ├── eine agent_version dominiert? → Diff Deployment (2)
+│   ├── Key ungeklärt / leaked?       → rotieren, IR (3,9)
+│   ├── Prompt-Tokens P95↑?           → Retrieval-/Schleifen-Fix (4)
+│   ├── Principal over-privileged?    → RBAC eindämmen (5)
+│   └── egress außerhalb Perimeter?   → Netzwerk-Fix (6)
+└── nein → getrennte Incidents öffnen</pre>
+  </section>
+
+  <section class="block">
+    <h2>Quick-Fixes (erste Stunde)</h2>
+    <ol class="qf">
+      <li><strong>Cost-Cap setzen</strong> &mdash; pro API-Key/Agent harte Token- &amp; Kostenobergrenze (Circuit-Breaker).</li>
+      <li><strong>Rate-Limit drosseln</strong> &mdash; bis Ursache klar ist, Agent-Durchsatz begrenzen.</li>
+      <li><strong>Falsche-Daten-Source togglen</strong> &mdash; betroffenen Konnektor deaktivieren / auf Allow-List setzen.</li>
+      <li><strong>Key rotieren</strong> &mdash; bei minimalem Leak-Verdacht; Aufwand gering, Wirkung hoch.</li>
+      <li><strong>Stakeholder-Briefing</strong> &mdash; 1-Zeiler: "Kostenanomalie + Datenzugriffs-Problem, Untersuchung läuft, Cost-Cap aktiv."</li>
+    </ol>
+  </section>
+
+  <section class="block">
+    <h2>Ownership-Matrix</h2>
+    <table>
+      <thead><tr><th>Bereich</th><th>Owner</th><th>Benachrichtigt bei</th></tr></thead>
+      <tbody>
+        <tr><td>Agent-Plattform / Modell-Routing</td><td>Platform-Team</td><td>Kosten↑, Modell-Wechsel</td></tr>
+        <tr><td>API-Keys / Secrets</td><td>Platform + Security</td><td>ungeklärte Key-Nutzung</td></tr>
+        <tr><td>Datenquellen / RAG</td><td>Data-Owner</td><td>falsche Datenzugriffe</td></tr>
+        <tr><td>IAM / RBAC</td><td>Identity-Team</td><td>Over-Privilegierung</td></tr>
+        <tr><td>Netzwerk / Private Endpoints</td><td>Network-Team</td><td>Egress-Anomalie</td></tr>
+        <tr><td>Budget / Alerting</td><td>FinOps</td><td>Alert gefeuert</td></tr>
+        <tr><td>Security / IR</td><td>Security-Team</td><td>Leak-Verdacht, Cross-Tenant</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <footer>
+    AI-Cloud Cost &amp; Access Triage &middot; Mini-Portfolio-Stück &middot; MIT-Lizenz &middot; Keine Garantie für Produktivnutzung.
+  </footer>
+
+</div>
+</body>
+</html>

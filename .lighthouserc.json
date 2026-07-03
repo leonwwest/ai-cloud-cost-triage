@@ -2,7 +2,7 @@
   "ci": {
     "collect": {
       "staticDistDir": ".",
-      "url": ["/index.html", "/index.en.html"],
+      "url": ["/index.html", "/index.en.html", "/governance.html", "/governance.en.html"],
       "numberOfRuns": 1,
       "settings": { "preset": "desktop" }
     },

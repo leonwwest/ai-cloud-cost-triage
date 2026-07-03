@@ -1,25 +1,39 @@
-# AI-Cloud Cost &amp; Access Triage
+# AI Incident Runbooks — Mini-Portfolio
 
-> Mini-Portfolio-Stück — einseitiger Triage-Runbook für den Fall, dass ein interner AI-Agent plötzlich teurer wird und Antworten auf falsche Daten zugreifen.
+> Zwei einseitige Triage-Runbooks für interne AI-Agenten: eines für **Kosten- &amp; Zugriffs-Anomalien**, eines für **Data-Governance-Vorfälle** (Over-Exposure). Cloud, Security, AI und Support in je einer Seite.
 
 [![CI &amp; Deploy](https://github.com/leonwwest/ai-cloud-cost-triage/actions/workflows/deploy.yml/badge.svg)](https://github.com/leonwwest/ai-cloud-cost-triage/actions/workflows/deploy.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+## Stück 1 — AI-Cloud Cost &amp; Access Triage
 
 **Szenario:** Ein Team nutzt einen internen AI-Agenten. Die Kosten steigen plötzlich und spürbar. Gleichzeitig greifen Antworten auf falsche / nicht autorisierte Datenquellen zu. Beide Symptome zeitgleich = typischerweise eine gemeinsame Ursache (z. B. fehlerhafter Datenquellen-Anschluss, falscher API-Key, leakender Prompt-Kontext, ausrollende RBAC-Änderung).
 
 Diese Seite führt in **9 Schritten** vom Symptom zur Eskalation. Jeder Schritt: *was prüfen → konkrete Aktion → Indikator für „weiter" vs. „stopp".*
 
+## Stück 2 — AI-Data-Governance Incident Runbook
+
+**Szenario:** Ein AI-Agent beantwortet Fragen mit Daten, auf die der fragende User eigentlich keinen Zugriff haben sollte (fremder Tenant, HBI/PII, andere Abteilung). Over-Exposure durch fehlendes Row-Level-Security, überbreiten Shared-Principal, fehlende Delegation oder klassifizierungsunbewusstes Retrieval.
+
+Diese Seite führt in **8 Schritten** vom Symptom zur dauerhaften Alert-Regel: `Symptom → User/Gruppe → IAM/RBAC → Datenquelle/Connector → Logs/Query-Audit → Kosten/Token → Sofortmaßnahme → Alert-Regel`.
+
 ---
 
 ## Ansehen
 
-- **Live (GitHub Pages):** https://leonwwest.github.io/ai-cloud-cost-triage/
-- **English:** https://leonwwest.github.io/ai-cloud-cost-triage/index.en.html
-- Lokal: `index.html` im Browser öffnen (kein Build, keine Dependencies) — oder `node scripts/build-plots.mjs` für frische Plots.
+**Stück 1 — Cost &amp; Access Triage**
+- Live (DE): https://leonwwest.github.io/ai-cloud-cost-triage/
+- English: https://leonwwest.github.io/ai-cloud-cost-triage/index.en.html
 
-## Was dieses Stück demonstriert
+**Stück 2 — Data-Governance Runbook**
+- Live (DE): https://leonwwest.github.io/ai-cloud-cost-triage/governance.html
+- English: https://leonwwest.github.io/ai-cloud-cost-triage/governance.en.html
 
-Multi-Cloud (Azure/AWS/GCP) · IAM &amp; Least-Privilege · Infrastructure as Code (Terraform/Bicep) · Observability (KQL/CloudWatch/Tracing) · FinOps &amp; Cost Engineering · Incident Response &amp; Post-Mortem · CI/CD &amp; SRE · Accessibility (ARIA-Tabs, Keyboard-Navi, SVG-Titel).
+Lokal: jeweilige `.html` im Browser öffnen (kein Build, keine Dependencies) — oder `node scripts/build-plots.mjs` für frische Plots (Stück 1).
+
+## Was diese Stücke demonstrieren
+
+Multi-Cloud (Azure/AWS/GCP) · IAM &amp; Least-Privilege / Row-Level-Security · Infrastructure as Code (Terraform/Bicep) · Observability (KQL/CloudWatch/Tracing, Query-Audit) · FinOps &amp; Cost Engineering · Data Governance / DLP / GDPR · Incident Response &amp; Post-Mortems · CI/CD &amp; SRE · Accessibility (ARIA-Tabs, Keyboard-Navi, SVG-Titel, Skip-Link).
 
 ## Triage-Fluss
 
@@ -31,8 +45,10 @@ Jeder Schritt mit *Was prüfen*, *Konkrete Aktion* und *Stopp-Indikator* → sie
 
 ```
 ai-cloud-cost-triage/
-├── index.html                     # Triage-Seite (DE, self-contained, dark/light toggle)
-├── index.en.html                  # English twin
+├── index.html                     # Stück 1: Cost &amp; Access Triage (DE)
+├── index.en.html                  # Stück 1: English twin
+├── governance.html                # Stück 2: Data-Governance Runbook (DE)
+├── governance.en.html             # Stück 2: English twin
 ├── README.md                      # diese Datei
 ├── LICENSE                        # MIT
 ├── .htmlhintrc                    # HTML-Validation-Config

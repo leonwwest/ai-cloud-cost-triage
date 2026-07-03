@@ -39,7 +39,7 @@ jobs:
           echo "Plot assets are in sync with data/triage-data.json"
 
       - name: HTMLHint
-        run: npx --yes htmlhint@1.1.4 --config .htmlhintrc "index.html" "index.en.html"
+        run: npx --yes htmlhint@1.1.4 --config .htmlhintrc "*.html"
 
   links:
     name: Link check (lychee)
@@ -52,7 +52,7 @@ jobs:
         with:
           args: >-
             --no-progress --exclude-private
-            "*.md" "index.html" "index.en.html"
+            "*.md" "*.html"
           fail: false
 
   lighthouse:
